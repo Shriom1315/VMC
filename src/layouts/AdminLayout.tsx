@@ -5,6 +5,7 @@ import { Link, Routes, Route, useLocation } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import AdminDashboardHome from "../pages/admin/AdminDashboardHome";
 import PartyRegistrationPage from "../pages/admin/PartyRegistrationPage";
+import GaugeRegistrationPage from "../pages/admin/GaugeRegistrationPage";
 import PlaceholderPage from "../pages/admin/PlaceholderPage";
 
 function Breadcrumb() {
@@ -77,7 +78,7 @@ export default function AdminLayout() {
           <Routes>
             <Route path="/" element={<AdminDashboardHome />} />
             <Route path="/basic-registration/party" element={<PartyRegistrationPage />} />
-            <Route path="/basic-registration/gauge-info" element={<PlaceholderPage title="Gauge Info Registration" />} />
+            <Route path="/basic-registration/gauge-info" element={<GaugeRegistrationPage />} />
             <Route path="/basic-registration/new-equipment" element={<PlaceholderPage title="New Equipment" />} />
             <Route path="/basic-registration/equipment-hist" element={<PlaceholderPage title="Equipment History" />} />
             <Route path="/basic-registration/uncertainty" element={<PlaceholderPage title="Uncertainty Reg" />} />

@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, UserPlus, Search } from "lucide-react";
 
 interface Party {
@@ -11,61 +11,81 @@ interface Party {
   email: string;
 }
 
-const INITIAL_PARTIES: Party[] = [
-  { id: 12,  name: "ANWITA ENTERPRISES",                       address: "DR. J.J. MAGDUM HSG. SOC. PLOT NO. 37, MOUJE AGAR JAYSINGPUR, TAL. SHIROL, DIST- KOLHAPUR", contact: "7757865993", gstNo: "27APJPC2174D1Z8",  email: "-" },
-  { id: 56,  name: "Sound Castings Pvt. Ltd. Unit-3",          address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "7744053500", gstNo: "27AACCS5263N1ZW", email: "pratiraj.patil@soundcastings.com" },
-  { id: 105, name: "SHRI DATTA FOUNDERS AND ENGINEERS PVT.LTD.", address: "B-33, M.I.D.C. SHIROLI, KOLHAPUR-416122",                                                  contact: "9049879305", gstNo: "27AANCS0625R1ZM", email: "vishalpadalkar.sdf@gmail.com" },
-  { id: 572, name: "ASHTVINAYAK ENGINEERS",                    address: "KUSHIRE",                                                                                      contact: "-",          gstNo: "-",              email: "-" },
-  { id: 686, name: "SAMRUDDHI ENGINEERS",                      address: "Gat No. 522/1, Plot No. 2, Vijaynagar, Nerli, MIDC Gokul Shirgaon, Kolhapur- 416 234",        contact: "9890249086", gstNo: "27AKYPM5715A1ZY", email: "smruddhi.3@gmail.com" },
-  { id: 843, name: "EAGAR STAR",                               address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                                 contact: "-",          gstNo: "27AAJFE7714N1ZX", email: "-" },
-  { id: 848, name: "Sound Castings Pvt. Ltd. Unit-3 (IFDC)",   address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "9970678872", gstNo: "27AACCS5263N1ZW", email: "Shekhar.Khot@soundcastings.com" },
-  { id: 849, name: "QA SOUND CASTING PVT. LTD.",               address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "8805967627", gstNo: "27AACCS5263N1ZW", email: "paresh.bhagwat@soundcastings.com" },
-  { id: 850, name: "AATHARV ENTERPRISES",                      address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                                 contact: "8180909007", gstNo: "27EMHPP4751A1Z2",  email: "-" },
-  { id: 859, name: "METACAST AUTO PRIVATE LIMITED",            address: "PLOT NO.T-26 KAGAL - HATKANANGALE FIVE STAR INDUSTRIAL AREA KOLHAPUR",                        contact: "-",          gstNo: "27AAQCM8947H1ZO", email: "-" },
-];
+const INITIAL_PARTIES: Party[] = [];
 
 export default function PartyRegistrationPage() {
-  const [regNo,           setRegNo]           = useState("");
-  const [companyName,     setCompanyName]     = useState("");
-  const [contactPerson,   setContactPerson]   = useState("");
-  const [address,         setAddress]         = useState("");
-  const [email,           setEmail]           = useState("");
-  const [contact,         setContact]         = useState("");
-  const [gstNo,           setGstNo]           = useState("");
-  const [gstType,         setGstType]         = useState("CGST/SGST");
-  const [otherAccess,     setOtherAccess]     = useState("No");
+  const [regNo, setRegNo] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [contact, setContact] = useState("");
+  const [gstNo, setGstNo] = useState("");
+  const [gstType, setGstType] = useState("CGST/SGST");
+  const [otherAccess, setOtherAccess] = useState("No");
   const [billingRateType, setBillingRateType] = useState("Fixed Discount %");
-  const [discountRate,    setDiscountRate]    = useState("");
-  const [collabMethod,    setCollabMethod]    = useState("Lab Method");
+  const [discountRate, setDiscountRate] = useState("");
+  const [collabMethod, setCollabMethod] = useState("Lab Method");
   const [reportingMethod, setReportingMethod] = useState("Lab Format");
   const [collationMethod, setCollationMethod] = useState("By Hand");
-  const [dispatchMethod,  setDispatchMethod]  = useState("By Hand");
-  const [compliance,      setCompliance]      = useState("Required");
-  const [decisionRule,    setDecisionRule]    = useState("Yes");
-  const [billingFirm,     setBillingFirm]     = useState("Vikramaditya Calibration");
+  const [dispatchMethod, setDispatchMethod] = useState("By Hand");
+  const [compliance, setCompliance] = useState("Required");
+  const [decisionRule, setDecisionRule] = useState("Yes");
+  const [billingFirm, setBillingFirm] = useState("Vikramaditya Calibration");
 
-  const [parties,     setParties]     = useState<Party[]>(INITIAL_PARTIES);
+  const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingId,   setEditingId]   = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+
+  const fetchParties = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/api/parties");
+      if (res.ok) {
+        const data = await res.json();
+        setParties(data);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchParties();
+  }, []);
 
   const resetForm = () => {
     setRegNo(""); setCompanyName(""); setContactPerson(""); setAddress("");
     setEmail(""); setContact(""); setGstNo(""); setEditingId(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!companyName.trim()) return;
-    if (editingId !== null) {
-      setParties(parties.map(p =>
-        p.id === editingId ? { ...p, name: companyName, address, contact, gstNo, email } : p
-      ));
-    } else {
-      const newId = Math.max(...parties.map(p => p.id)) + 1;
-      setParties([...parties, { id: newId, name: companyName, address, contact, gstNo, email }]);
+
+    try {
+      const payload = {
+        regNo, companyName, contactPerson, address, email, contact, gstNo,
+        gstType, otherAccess, billingRateType, discountRate, collabMethod,
+        reportingMethod, collationMethod, dispatchMethod, compliance,
+        decisionRule, billingFirm
+      };
+
+      const res = await fetch("http://localhost:3001/api/parties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        fetchParties();
+        resetForm();
+      } else {
+        console.error("Failed to save party to db");
+      }
+    } catch (error) {
+      console.error(error);
     }
-    resetForm();
   };
 
   const handleSelect = (p: Party) => {
@@ -90,11 +110,11 @@ export default function PartyRegistrationPage() {
   );
 
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
-  const paginated  = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const paginated = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
-  const fieldCls  = "w-full bg-white border border-gray-300 text-black text-xs px-2 py-1.5 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-colors";
+  const fieldCls = "w-full bg-white border border-gray-300 text-black text-xs px-2 py-1.5 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-colors";
   const selectCls = "w-full bg-white border border-gray-300 text-black text-xs px-2 py-1.5 focus:outline-none focus:border-brand-orange appearance-none cursor-pointer";
-  const labelCls  = "block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1";
+  const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1";
 
   const SelectField = ({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) => (
     <div>
@@ -263,9 +283,8 @@ export default function PartyRegistrationPage() {
                 paginated.map((p, i) => (
                   <tr
                     key={p.id}
-                    className={`border-b border-gray-100 hover:bg-orange-50 transition-colors ${
-                      editingId === p.id ? "bg-orange-50 border-l-2 border-l-brand-orange" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                    }`}
+                    className={`border-b border-gray-100 hover:bg-orange-50 transition-colors ${editingId === p.id ? "bg-orange-50 border-l-2 border-l-brand-orange" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                      }`}
                   >
                     <td className="px-3 py-2 font-mono text-gray-500 border-r border-gray-100">{p.id}</td>
                     <td className="px-3 py-2 font-bold text-black border-r border-gray-100">{p.name}</td>
