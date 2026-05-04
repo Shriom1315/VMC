@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 
 export default function FooterSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4">
-      <span className="text-white border-b border-gray-800 pb-2 mb-2 font-black">{title}</span>
-      <div className="flex flex-col gap-2">{children}</div>
+    <div className="flex flex-col gap-3">
+      <span className="text-white text-xs font-semibold uppercase tracking-wider">{title}</span>
+      <div className="flex flex-col gap-2 text-gray-400">{children}</div>
     </div>
   );
 }

@@ -7,10 +7,10 @@ export default function NavLink({ label, to }: { label: string; to: string }) {
   return (
     <Link
       to={to}
-      className={`h-full flex items-center px-3 transition-all duration-200 border-b-2 hover:bg-orange-50 ${
+      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
         active
-          ? "text-brand-orange border-brand-orange font-bold"
-          : "text-gray-500 border-transparent hover:text-black"
+          ? "bg-brand-orange-light text-brand-orange"
+          : "text-text-secondary hover:text-text-primary hover:bg-surface-muted"
       }`}
     >
       {label}

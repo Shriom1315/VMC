@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Search, ChevronRight } from "lucide-react";
+import { Search } from "lucide-react";
 import { useState, ChangeEvent } from "react";
 
 const METROLOGY_TERMS = [
@@ -40,10 +40,10 @@ export default function SearchAutocomplete() {
 
   return (
     <div className="relative hidden lg:block">
-      <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3" />
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted w-3.5 h-3.5" />
       <input
-        className="bg-industrial-low border-b-2 border-black dark:border-white focus:outline-none focus:border-brand-orange font-mono text-xs pl-7 pr-2 py-1 w-32 xl:w-48 text-industrial-text placeholder-gray-500 transition-all"
-        placeholder="SEARCH SPECS..."
+        className="bg-surface-muted border border-border rounded text-xs pl-8 pr-3 py-1.5 w-40 xl:w-52 text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-all"
+        placeholder="Search..."
         type="text"
         value={query}
         onChange={handleInputChange}
@@ -53,21 +53,19 @@ export default function SearchAutocomplete() {
       <AnimatePresence>
         {showSuggestions && suggestions.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="absolute top-full left-0 w-full bg-white dark:bg-black hairline-border border-t-0 shadow-xl z-[60] mt-1"
+            exit={{ opacity: 0, y: 4 }}
+            className="absolute top-full left-0 w-full bg-white border border-border rounded shadow-lg z-[60] mt-1 overflow-hidden"
           >
-            <div className="blueprint-grid opacity-20 absolute inset-0 pointer-events-none" />
-            <ul className="relative font-mono text-[11px] uppercase tracking-wider">
+            <ul className="text-xs">
               {suggestions.map((term) => (
                 <li
                   key={term}
                   onClick={() => selectSuggestion(term)}
-                  className="p-2 border-b border-gray-100 last:border-0 hover:bg-brand-orange hover:text-white cursor-pointer transition-colors flex justify-between items-center group"
+                  className="px-3 py-2 border-b border-border last:border-0 hover:bg-surface-muted cursor-pointer transition-colors text-text-primary"
                 >
-                  <span>{term}</span>
-                  <ChevronRight size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {term}
                 </li>
               ))}
             </ul>

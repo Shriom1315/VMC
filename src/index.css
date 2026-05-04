@@ -1,78 +1,85 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-brand-orange: #ff6b00;
-  --color-industrial-bg: #fff8f6;
+  --color-brand-orange: #e85d04;
+  --color-brand-orange-light: #fff3ec;
+
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f9fafb;
+  --color-surface-muted: #f3f4f6;
+
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  /* keep legacy names so existing pages don't break */
+  --color-industrial-bg: #f9fafb;
   --color-industrial-surface: #ffffff;
-  --color-industrial-low: #fff1eb;
-  --color-industrial-high: #fee3d8;
-  --color-industrial-highest: #f8ddd2;
-  --color-industrial-outline: #8e7164;
-  --color-industrial-text: #261812;
-  --color-industrial-text-variant: #5a4136;
+  --color-industrial-low: #f3f4f6;
+  --color-industrial-high: #e5e7eb;
+  --color-industrial-highest: #d1d5db;
+  --color-industrial-outline: #9ca3af;
+  --color-industrial-text: #111827;
+  --color-industrial-text-variant: #6b7280;
 }
 
 @layer base {
   body {
-    @apply bg-industrial-bg text-industrial-text antialiased selection:bg-brand-orange selection:text-white;
-    background-image: 
-      linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
-    background-position: center center;
+    @apply bg-surface-subtle text-text-primary antialiased selection:bg-brand-orange selection:text-white;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
   }
 }
 
 @layer components {
+  /* Subtle grid only used where explicitly applied */
   .blueprint-grid {
-    background-image: 
-      linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
-    background-size: 10px 10px;
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.025) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
+  .hairline-border {
+    @apply border border-border;
+  }
+
+  /* Crosshair decorations — kept but toned down */
   .crosshair {
     @apply absolute pointer-events-none;
   }
-
   .crosshair::before, .crosshair::after {
     content: '';
-    @apply absolute bg-industrial-text;
+    @apply absolute bg-border-strong;
+  }
+  .crosshair-tl::before { top: 0; left: -4px; width: 8px; height: 1px; }
+  .crosshair-tl::after  { top: -4px; left: 0; width: 1px; height: 8px; }
+  .crosshair-tr::before { top: 0; right: -4px; width: 8px; height: 1px; }
+  .crosshair-tr::after  { top: -4px; right: 0; width: 1px; height: 8px; }
+  .crosshair-bl::before { bottom: 0; left: -4px; width: 8px; height: 1px; }
+  .crosshair-bl::after  { bottom: -4px; left: 0; width: 1px; height: 8px; }
+  .crosshair-br::before { bottom: 0; right: -4px; width: 8px; height: 1px; }
+  .crosshair-br::after  { bottom: -4px; right: 0; width: 1px; height: 8px; }
+
+  /* Card */
+  .card {
+    @apply bg-surface rounded-lg border border-border shadow-sm;
   }
 
-  .crosshair-tl::before { top: 0; left: -5px; width: 10px; height: 1px; }
-  .crosshair-tl::after { top: -5px; left: 0; width: 1px; height: 10px; }
-  
-  .crosshair-tr::before { top: 0; right: -5px; width: 10px; height: 1px; }
-  .crosshair-tr::after { top: -5px; right: 0; width: 1px; height: 10px; }
-  
-  .crosshair-bl::before { bottom: 0; left: -5px; width: 10px; height: 1px; }
-  .crosshair-bl::after { bottom: -5px; left: 0; width: 1px; height: 10px; }
-  
-  .crosshair-br::before { bottom: 0; right: -5px; width: 10px; height: 1px; }
-  .crosshair-br::after { bottom: -5px; right: 0; width: 1px; height: 10px; }
-
-  .hairline-border {
-    @apply border border-[#c8c6c5];
-  }
-
-  .leader-line {
-    @apply relative;
-  }
-
-  .leader-line::before {
-    content: '';
-    @apply absolute -bottom-5 left-1/2 w-px h-5 bg-industrial-text;
-  }
-
-  .leader-line::after {
-    content: '';
-    @apply absolute -bottom-5 left-1/2 w-1 h-1 rounded-full bg-brand-orange -translate-x-1/2;
+  /* Pill badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
   }
 }
 
@@ -81,28 +88,22 @@
     margin: 0.8cm;
     size: A4 portrait;
   }
-
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-
   body {
     background: white !important;
     background-image: none !important;
     font-size: 8pt !important;
   }
-
   header, footer, nav, aside {
     display: none !important;
   }
-
   main {
     padding: 0 !important;
     margin: 0 !important;
   }
-
-  /* All inputs/textareas render as plain text */
   input, textarea, select {
     border: none !important;
     outline: none !important;
@@ -114,24 +115,19 @@
     appearance: none !important;
     -webkit-appearance: none !important;
   }
-
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     display: none !important;
   }
-
-  /* Table cells override — let Tailwind border classes handle it */
   table {
     border-collapse: collapse !important;
     width: 100% !important;
   }
-
   th, td {
     color: black !important;
     font-size: 8pt !important;
   }
-
   th {
     font-weight: bold !important;
   }

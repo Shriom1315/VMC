@@ -1,21 +1,28 @@
 import { motion } from "motion/react";
-import { HardDrive } from "lucide-react";
+import { Construction } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function PlaceholderPage({ title }: { title: string }) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1600px] mx-auto w-full">
-      <div className="bg-white border border-gray-200 rounded-lg p-12 flex flex-col items-center justify-center min-h-[400px] shadow-sm relative overflow-hidden">
-        <div className="absolute inset-0 blueprint-grid opacity-[0.03] pointer-events-none" />
-        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-6 relative z-10 border border-gray-100">
-          <HardDrive size={32} className="text-gray-400" />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="max-w-5xl mx-auto w-full"
+    >
+      <div className="bg-white rounded-lg border border-border p-12 flex flex-col items-center justify-center min-h-[360px] shadow-sm">
+        <div className="w-12 h-12 bg-surface-muted rounded-full flex items-center justify-center mb-4">
+          <Construction size={22} className="text-text-muted" />
         </div>
-        <h1 className="text-xl md:text-2xl font-semibold font-sans text-gray-900 mb-3 relative z-10 text-center">{title}</h1>
-        <p className="font-sans text-sm text-gray-500 relative z-10 text-center max-w-sm">
-          This module is currently under development. Please check back later for updates.
+        <h1 className="text-base font-semibold text-text-primary mb-2">{title}</h1>
+        <p className="text-sm text-text-secondary text-center max-w-xs">
+          This module is under development and will be available soon.
         </p>
-        <Link to="/admin" className="mt-8 bg-white text-gray-700 font-sans font-medium text-sm px-6 py-2 border border-gray-300 hover:bg-gray-50 transition-all relative z-10 rounded-md shadow-sm">
-          Return to Dashboard
+        <Link
+          to="/admin"
+          className="mt-6 text-xs font-medium text-brand-orange hover:underline"
+        >
+          ← Back to Dashboard
         </Link>
       </div>
     </motion.div>
