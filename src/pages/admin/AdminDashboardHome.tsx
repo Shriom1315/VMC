@@ -8,7 +8,7 @@ export default function AdminDashboardHome() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="max-w-5xl mx-auto w-full flex flex-col gap-6"
+      className="w-full flex flex-col gap-6"
     >
       {/* Page header */}
       <div className="flex items-center justify-between">

@@ -4,29 +4,22 @@ import { Printer, FileDown, Plus, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const MOCK_CLIENTS: Record<string, any> = {
+const MOCK_CLIENTS: Record<string, { name: string; address: string }> = {
   "T-1000": { name: "CYBERDYNE SYSTEMS", address: "Tech Tower, Sector 7, Neo-Tokyo, Japan" },
   "W-40K":  { name: "ADEPTUS MECHANICUS", address: "Iron Temple, Forge World Mars, Sol System" },
-  "ST-01":  { name: "STARFLEET COMMAND", address: "Presidio, San Francisco, United Earth" },
+  "ST-01":  { name: "STARFLEET COMMAND",  address: "Presidio, San Francisco, United Earth" },
 };
 
 interface POItem {
-  id: string;
-  poCode: string;
-  particular: string;
-  category: string;
-  size: string;
-  qty: number;
-  repair: number;
-  calibration: number;
-  discount: number;
+  id: string; poCode: string; particular: string; category: string; size: string;
+  qty: number; repair: number; calibration: number; discount: number;
 }
 
 export default function PurchaseOrderPage() {
   const [poNumber] = useState(`PO-${Math.floor(100000 + Math.random() * 900000)}`);
-  const [poDate] = useState(new Date().toISOString().split("T")[0]);
+  const [poDate]   = useState(new Date().toISOString().split("T")[0]);
   const [customerName, setCustomerName] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress]           = useState("");
   const [clientIdSearch, setClientIdSearch] = useState("");
   const [items, setItems] = useState<POItem[]>([
     { id: "1", poCode: "", particular: "", category: "", size: "", qty: 1, repair: 0, calibration: 0, discount: 0 },
@@ -34,32 +27,23 @@ export default function PurchaseOrderPage() {
 
   const fetchClientDetails = () => {
     const data = MOCK_CLIENTS[clientIdSearch.toUpperCase()];
-    if (data) {
-      setCustomerName(data.name);
-      setAddress(data.address);
-    } else {
-      alert("CLIENT NODE NOT FOUND IN REGISTRY");
-    }
+    if (data) { setCustomerName(data.name); setAddress(data.address); }
+    else alert("Client not found in registry.");
   };
 
   const addItem = () =>
     setItems([...items, { id: Date.now().toString(), poCode: "", particular: "", category: "", size: "", qty: 1, repair: 0, calibration: 0, discount: 0 }]);
-
-  const removeItem = (id: string) => {
-    if (items.length > 1) setItems(items.filter(item => item.id !== id));
-  };
-
-  const updateItem = (id: string, field: keyof POItem, value: any) => {
+  const removeItem = (id: string) => { if (items.length > 1) setItems(items.filter(i => i.id !== id)); };
+  const updateItem = (id: string, field: keyof POItem, value: string) => {
     setItems(items.map(item => {
       if (item.id !== id) return item;
-      if (["qty", "repair", "calibration", "discount"].includes(field)) {
+      if (["qty","repair","calibration","discount"].includes(field))
         return { ...item, [field]: Math.max(0, parseFloat(value) || 0) };
-      }
       return { ...item, [field]: value };
     }));
   };
 
-  const calcRate = (item: POItem) => (item.repair + item.calibration) * (1 - item.discount / 100);
+  const calcRate  = (item: POItem) => (item.repair + item.calibration) * (1 - item.discount / 100);
   const calcTotal = (item: POItem) => calcRate(item) * item.qty;
 
   const summary = useMemo(() =>
@@ -69,169 +53,166 @@ export default function PurchaseOrderPage() {
 
   const exportPDF = () => {
     const doc = new jsPDF() as any;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("Purchase Order", 105, 20, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`PO Number: ${poNumber}`, 20, 35);
-    doc.text(`Date: ${poDate}`, 150, 35);
-    doc.text(`Customer Name: ${customerName}`, 20, 45);
-    doc.text(`Address: ${address}`, 20, 50);
-
-    doc.autoTable({
-      startY: 70,
-      head: [["Code", "Particular", "Category", "Size", "Qty", "Repair", "Calib.", "Disc%", "Rate", "Total"]],
-      body: items.map(item => [
-        item.poCode, item.particular, item.category, item.size, item.qty,
-        item.repair.toFixed(2), item.calibration.toFixed(2), `${item.discount}%`,
-        calcRate(item).toFixed(2), calcTotal(item).toFixed(2),
-      ]),
-      theme: "grid",
-      headStyles: { fillColor: [249, 115, 22] },
-      styles: { fontSize: 8 },
-    });
-
+    doc.setFont("helvetica","bold"); doc.setFontSize(20);
+    doc.text("Purchase Order", 105, 20, { align:"center" });
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.text(`PO Number: ${poNumber}`, 20, 35); doc.text(`Date: ${poDate}`, 150, 35);
+    doc.text(`Customer: ${customerName}`, 20, 45); doc.text(`Address: ${address}`, 20, 50);
+    doc.autoTable({ startY:70, head:[["Code","Particular","Category","Size","Qty","Repair","Calib.","Disc%","Rate","Total"]], body: items.map(item => [item.poCode, item.particular, item.category, item.size, item.qty, item.repair.toFixed(2), item.calibration.toFixed(2), `${item.discount}%`, calcRate(item).toFixed(2), calcTotal(item).toFixed(2)]), theme:"grid", headStyles:{ fillColor:[232,93,4] }, styles:{ fontSize:8 } });
     const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Total Quantity: ${summary.qty}`, 150, finalY);
-    doc.text(`Total Amount: ${summary.total.toFixed(2)}`, 150, finalY + 5);
+    doc.text(`Total Qty: ${summary.qty}`, 150, finalY);
+    doc.text(`Total: ${summary.total.toFixed(2)}`, 150, finalY + 5);
     doc.save(`${poNumber}.pdf`);
   };
 
+  const labelCls = "block text-xs font-medium text-text-secondary mb-1";
+  const inputCls = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
+  const readonlyCls = "w-full bg-surface-muted border border-border rounded-md px-3 py-2 text-sm text-text-secondary cursor-not-allowed font-mono";
+  const thCls = "px-3 py-2.5 text-xs font-medium text-text-secondary border-r border-border last:border-r-0";
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 md:p-8 lg:p-10 print:p-0 max-w-[1400px] mx-auto w-full flex flex-col gap-6 font-sans">
-      <div className="bg-white border border-gray-300 print:border-none shadow-sm print:shadow-none flex flex-col">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="w-full px-4 md:px-8 py-6 print:p-0 flex flex-col gap-6"
+    >
+      {/* Print Header */}
+      <div className="hidden print:flex flex-col items-center py-4 border-b-2 border-black mb-4">
+        <h1 className="text-2xl font-bold text-black">Vikramaditya Enterprises</h1>
+        <p className="text-sm text-black mt-1">A/P Male, Tal. Panhala, Dist. Kolhapur 416122</p>
+        <p className="text-xs text-black mt-0.5">Phone: +91 9503601616 | Email: kiranpatil24586@gmail.com</p>
+      </div>
 
-        {/* Print Header */}
-        <div className="hidden print:flex flex-col items-center py-6 border-b-2 border-black mb-4">
-          <h1 className="text-3xl font-black uppercase tracking-widest text-black text-center">Vikramaditya Precision</h1>
-          <p className="text-sm font-medium text-black mt-1 text-center">123 Metrology Park, Neo-Tech Sector, Phase 4</p>
-          <p className="text-xs font-mono text-black mt-1 text-center">Phone: +91 9876543210 | Email: contact@vikramaditya.com</p>
+      {/* Page header */}
+      <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-text-primary">Purchase Order</h1>
+          <p className="text-xs text-text-secondary mt-0.5">Log and manage purchase orders</p>
         </div>
-
-        {/* Screen Header */}
-        <div className="bg-gray-50 border-b border-gray-300 print:hidden p-5 px-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold uppercase tracking-wide text-gray-800">Purchase Order</h2>
-            <p className="text-xs text-gray-500 font-mono mt-1">INTERNAL_DOC // GENERATION_NODE</p>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={() => window.print()} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
-              <Printer size={14} /> Print
-            </button>
-            <button onClick={exportPDF} className="bg-blue-600 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
-              <FileDown size={14} /> Export PDF
-            </button>
-          </div>
+        <div className="flex gap-2">
+          <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 border border-border text-text-secondary text-xs font-medium px-3 py-2 rounded-lg hover:bg-surface-muted transition-colors">
+            <Printer size={13} /> Print
+          </button>
+          <button onClick={exportPDF} className="inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+            <FileDown size={13} /> Export PDF
+          </button>
         </div>
+      </div>
 
-        <div className="p-6 md:p-8 flex flex-col gap-8 print:p-0">
-          {/* Header Data */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-12 gap-y-6">
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-1.5 block">Customer PO No</label>
-                <input value={poNumber} readOnly className="w-full bg-gray-50 border border-gray-300 p-2 text-sm text-gray-600 cursor-not-allowed font-mono" />
+      <div className="bg-white rounded-xl border border-border shadow-sm print:rounded-none print:border-none print:shadow-none flex flex-col gap-0">
+        {/* Header fields */}
+        <div className="p-5 md:p-6 border-b border-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className={labelCls}>PO Number</label>
+              <input value={poNumber} readOnly className={readonlyCls} />
+            </div>
+            <div>
+              <label className={labelCls}>PO Date</label>
+              <input type="date" value={poDate} readOnly className={readonlyCls} />
+            </div>
+            <div className="lg:col-span-2 flex gap-2 items-end">
+              <div className="flex-1">
+                <label className={labelCls}>Customer Name</label>
+                <input value={customerName} onChange={e => setCustomerName(e.target.value)} className={inputCls} placeholder="Enter customer name..." />
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-1.5 block">PO Date</label>
-                <input type="date" value={poDate} readOnly className="w-full bg-gray-50 border border-gray-300 p-2 text-sm text-gray-600 cursor-not-allowed font-mono" />
+              <div className="w-36 print:hidden">
+                <label className={labelCls}>Fetch by ID</label>
+                <div className="flex h-[38px]">
+                  <input
+                    value={clientIdSearch}
+                    onChange={e => setClientIdSearch(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && fetchClientDetails()}
+                    className="flex-1 min-w-0 border border-border border-r-0 rounded-l-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    placeholder="ID..."
+                  />
+                  <button
+                    onClick={fetchClientDetails}
+                    className="bg-gray-800 text-white px-3 text-xs font-medium rounded-r-md hover:bg-gray-700 transition-colors whitespace-nowrap"
+                  >
+                    Fetch
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="lg:col-span-2 flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-1.5 block">Customer Name</label>
-                  <input value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-white border border-gray-300 p-2 text-sm focus:outline-none focus:border-blue-500 text-black" placeholder="Enter customer name..." />
-                </div>
-                <div className="w-full md:w-48 print:hidden">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-1.5 block">Fetch By ID</label>
-                  <div className="flex h-[38px]">
-                    <input value={clientIdSearch} onChange={e => setClientIdSearch(e.target.value)} className="w-full bg-white border border-r-0 border-gray-300 p-2 text-sm focus:outline-none text-black font-mono" placeholder="ID..." />
-                    <button onClick={fetchClientDetails} className="bg-gray-800 text-white px-3 font-bold text-xs uppercase tracking-widest hover:bg-gray-700 transition-colors flex-1">
-                      Sync
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-1.5 block">Customer Address</label>
-                <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} className="w-full bg-white border border-gray-300 p-2 text-sm focus:outline-none text-black" placeholder="Client location details..." />
-              </div>
-            </div>
           </div>
-
-          {/* Items Table */}
           <div className="mt-4">
-            <div className="flex justify-between items-end border-b border-gray-200 pb-2 mb-4 print:hidden">
-              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Item Matrix</h3>
-              <button onClick={addItem} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 uppercase">
-                <Plus size={14} /> Add Row
-              </button>
-            </div>
-            <div className="border border-gray-300 print:border-none overflow-x-auto">
-              <table className="w-full text-left text-sm min-w-[1000px] print:min-w-full">
-                <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
-                  <tr>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24">Code</th>
-                    <th className="p-3 font-bold border-r border-gray-300">Particular</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-28">Category</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24">Size</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-16 text-right">Qty</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24 text-right">Repair</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24 text-right">Calib.</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-16 text-right">Disc %</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24 text-right">Rate (₹)</th>
-                    <th className="p-3 font-bold border-r border-gray-300 w-24 text-right">Total (₹)</th>
-                    <th className="p-3 w-10 print:hidden" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {items.map(item => (
-                    <tr key={item.id} className="group hover:bg-gray-50 text-gray-800">
-                      <td className="p-0 border-r border-gray-300"><input value={item.poCode} onChange={e => updateItem(item.id, "poCode", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none font-mono text-xs text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input value={item.particular} onChange={e => updateItem(item.id, "particular", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input value={item.category} onChange={e => updateItem(item.id, "category", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input value={item.size} onChange={e => updateItem(item.id, "size", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input type="number" min="1" value={item.qty} onChange={e => updateItem(item.id, "qty", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input type="number" min="0" value={item.repair} onChange={e => updateItem(item.id, "repair", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input type="number" min="0" value={item.calibration} onChange={e => updateItem(item.id, "calibration", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-black" /></td>
-                      <td className="p-0 border-r border-gray-300"><input type="number" min="0" value={item.discount} onChange={e => updateItem(item.id, "discount", e.target.value)} className="w-full p-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-black" /></td>
-                      <td className="p-2.5 text-right font-mono font-semibold bg-gray-50 border-r border-gray-300 text-gray-600">{calcRate(item).toFixed(2)}</td>
-                      <td className="p-2.5 text-right font-mono font-bold bg-gray-50 border-r border-gray-300 text-black">{calcTotal(item).toFixed(2)}</td>
-                      <td className="p-2 text-center text-gray-400 print:hidden">
-                        <button onClick={() => removeItem(item.id)} className="hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-gray-100 border-t border-gray-300 text-gray-800">
-                  <tr>
-                    <td colSpan={4} className="p-3 text-right font-bold uppercase tracking-widest border-r border-gray-300 pr-4">Totals</td>
-                    <td className="p-3 text-right font-mono font-bold text-black border-r border-gray-300 text-base">{summary.qty}</td>
-                    <td colSpan={4} className="border-r border-gray-300" />
-                    <td className="p-3 text-right font-mono font-bold text-black text-lg">{summary.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="print:hidden" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <label className={labelCls}>Customer Address</label>
+            <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} className={`${inputCls} resize-none`} placeholder="Client address..." />
           </div>
+        </div>
 
-          <div className="flex justify-end pt-2 print:hidden">
-            <p className="text-xs font-mono text-gray-400">AUTO_CALC_ENABLED // VERIFIED_PARAMETERS</p>
+        {/* Items table */}
+        <div className="p-5 md:p-6">
+          <div className="flex justify-between items-center mb-3 print:hidden">
+            <h2 className="text-sm font-semibold text-text-primary">Line Items</h2>
+            <button onClick={addItem} className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-orange hover:underline">
+              <Plus size={13} /> Add Row
+            </button>
           </div>
+          <div className="rounded-lg border border-border overflow-x-auto print:rounded-none print:border-black">
+            <table className="w-full text-left text-xs min-w-[900px] print:min-w-full">
+              <thead className="bg-surface-muted border-b border-border print:bg-white print:border-black">
+                <tr>
+                  <th className={thCls}>Code</th>
+                  <th className={thCls}>Particular</th>
+                  <th className={thCls}>Category</th>
+                  <th className={thCls}>Size</th>
+                  <th className={`${thCls} text-right`}>Qty</th>
+                  <th className={`${thCls} text-right`}>Repair</th>
+                  <th className={`${thCls} text-right`}>Calib.</th>
+                  <th className={`${thCls} text-right`}>Disc %</th>
+                  <th className={`${thCls} text-right`}>Rate (₹)</th>
+                  <th className={`${thCls} text-right`}>Total (₹)</th>
+                  <th className="px-3 py-2.5 w-8 print:hidden" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border print:divide-black">
+                {items.map(item => (
+                  <tr key={item.id} className="group hover:bg-surface-subtle text-text-primary">
+                    <td className="p-0 border-r border-border print:border-black"><input value={item.poCode}      onChange={e => updateItem(item.id,"poCode",e.target.value)}      className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none font-mono text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input value={item.particular}  onChange={e => updateItem(item.id,"particular",e.target.value)}  className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input value={item.category}    onChange={e => updateItem(item.id,"category",e.target.value)}    className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input value={item.size}        onChange={e => updateItem(item.id,"size",e.target.value)}        className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input type="number" min="1"  value={item.qty}         onChange={e => updateItem(item.id,"qty",e.target.value)}         className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input type="number" min="0"  value={item.repair}      onChange={e => updateItem(item.id,"repair",e.target.value)}      className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input type="number" min="0"  value={item.calibration} onChange={e => updateItem(item.id,"calibration",e.target.value)} className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-xs" /></td>
+                    <td className="p-0 border-r border-border print:border-black"><input type="number" min="0"  value={item.discount}    onChange={e => updateItem(item.id,"discount",e.target.value)}    className="w-full px-3 py-2.5 bg-transparent focus:bg-blue-50 focus:outline-none text-right font-mono text-xs" /></td>
+                    <td className="px-3 py-2.5 text-right font-mono text-text-secondary border-r border-border print:border-black">{calcRate(item).toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-semibold text-text-primary border-r border-border print:border-black">{calcTotal(item).toFixed(2)}</td>
+                    <td className="px-2 py-2.5 text-center print:hidden">
+                      <button onClick={() => removeItem(item.id)} className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-red-500 transition-all">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-surface-muted border-t border-border print:bg-white print:border-black">
+                <tr>
+                  <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-semibold text-text-secondary border-r border-border print:border-black">Totals</td>
+                  <td className="px-3 py-2.5 text-right font-mono font-bold text-text-primary border-r border-border print:border-black">{summary.qty}</td>
+                  <td colSpan={4} className="border-r border-border print:border-black" />
+                  <td className="px-3 py-2.5 text-right font-mono font-bold text-text-primary border-r border-border print:border-black">
+                    {summary.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="print:hidden" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
 
-          {/* Print Footer */}
-          <div className="hidden print:flex flex-row justify-between items-end mt-24 pt-8">
-            <div className="text-center">
-              <div className="w-48 border-b-2 border-black mb-2 mx-auto" />
-              <p className="font-bold text-xs uppercase tracking-widest text-black">Prepared By</p>
-            </div>
-            <div className="text-center">
-              <div className="w-48 border-b-2 border-black mb-2 mx-auto" />
-              <p className="font-bold text-xs uppercase tracking-widest text-black">Authorized Signatory &amp; Stamp</p>
-            </div>
+        {/* Print signature */}
+        <div className="hidden print:flex flex-row justify-between items-end px-6 pb-8 pt-16">
+          <div className="text-center">
+            <div className="w-40 border-b border-black mb-1 mx-auto" />
+            <p className="text-xs text-black">Prepared By</p>
+          </div>
+          <div className="text-center">
+            <div className="w-40 border-b border-black mb-1 mx-auto" />
+            <p className="text-xs text-black">Authorized Signatory</p>
           </div>
         </div>
       </div>

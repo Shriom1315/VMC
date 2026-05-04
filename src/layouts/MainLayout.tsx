@@ -1,17 +1,25 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn } from "lucide-react";
 import { Link, Routes, Route } from "react-router-dom";
 import NavLink from "../components/NavLink";
 import SearchAutocomplete from "../components/SearchAutocomplete";
 import FooterSection from "../components/FooterSection";
 import HomePage from "../pages/HomePage";
+import AboutPage from "../pages/AboutPage";
+import ContactPage from "../pages/ContactPage";
 import QuotationPage from "../pages/QuotationPage";
 import PurchaseOrderPage from "../pages/PurchaseOrderPage";
 import MaterialInwardPage from "../pages/MaterialInwardPage";
 
 export default function MainLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const navItems = [
+    { label: "Home",       to: "/" },
+    { label: "About Us",   to: "/about" },
+    { label: "Contact Us", to: "/contact" },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col font-sans relative overflow-x-hidden bg-surface-subtle">
@@ -22,22 +30,20 @@ export default function MainLayout() {
             Vikramaditya Metrology
           </Link>
           <nav className="hidden md:flex items-center h-full border-l border-border pl-6 gap-1">
-            <NavLink label="Home" to="/" />
-            <NavLink label="Quotation" to="/quotation" />
-            <NavLink label="Purchase Order" to="/po" />
-            <NavLink label="Material Inward" to="/inward" />
-            <NavLink label="Admin" to="/admin" />
+            {navItems.map(item => (
+              <NavLink key={item.to} label={item.label} to={item.to} />
+            ))}
           </nav>
         </div>
 
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <SearchAutocomplete />
-          <button className="hidden sm:block bg-brand-orange text-white text-xs font-medium px-4 py-1.5 rounded hover:bg-orange-700 transition-colors">
-            Sync
-          </button>
-          <button className="hidden sm:block border border-border text-text-secondary text-xs font-medium px-4 py-1.5 rounded hover:bg-surface-muted transition-colors">
-            Export
-          </button>
+          <Link
+            to="/login"
+            className="hidden sm:inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-4 py-1.5 rounded hover:bg-orange-700 transition-colors"
+          >
+            <LogIn size={13} /> Login
+          </Link>
           <button
             className="md:hidden text-text-secondary hover:text-text-primary"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -56,13 +62,7 @@ export default function MainLayout() {
             exit={{ opacity: 0, y: -8 }}
             className="md:hidden fixed top-14 left-0 w-full bg-white border-b border-border z-40 py-2 flex flex-col shadow-lg"
           >
-            {[
-              { label: "Home", to: "/" },
-              { label: "Quotation", to: "/quotation" },
-              { label: "Purchase Order", to: "/po" },
-              { label: "Material Inward", to: "/inward" },
-              { label: "Admin", to: "/admin" },
-            ].map(({ label, to }) => (
+            {navItems.map(({ label, to }) => (
               <Link
                 key={to}
                 to={to}
@@ -72,9 +72,14 @@ export default function MainLayout() {
                 {label}
               </Link>
             ))}
-            <div className="flex gap-2 p-4">
-              <button className="flex-1 bg-brand-orange text-white py-2 text-xs font-medium rounded">Sync</button>
-              <button className="flex-1 border border-border text-text-secondary py-2 text-xs font-medium rounded">Export</button>
+            <div className="p-4">
+              <Link
+                to="/login"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full bg-brand-orange text-white py-2.5 text-sm font-medium rounded-lg"
+              >
+                <LogIn size={14} /> Login to Dashboard
+              </Link>
             </div>
           </motion.div>
         )}
@@ -82,10 +87,12 @@ export default function MainLayout() {
 
       <main className="flex-grow">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/"          element={<HomePage />} />
+          <Route path="/about"     element={<AboutPage />} />
+          <Route path="/contact"   element={<ContactPage />} />
           <Route path="/quotation" element={<QuotationPage />} />
-          <Route path="/po" element={<PurchaseOrderPage />} />
-          <Route path="/inward" element={<MaterialInwardPage />} />
+          <Route path="/po"        element={<PurchaseOrderPage />} />
+          <Route path="/inward"    element={<MaterialInwardPage />} />
         </Routes>
       </main>
 
@@ -99,10 +106,10 @@ export default function MainLayout() {
         </div>
 
         <FooterSection title="Links">
-          <a href="#" className="text-xs hover:text-white transition-colors">Terms of Service</a>
-          <a href="#" className="text-xs hover:text-white transition-colors">Calibration Logs</a>
-          <a href="#" className="text-xs hover:text-white transition-colors">Contact</a>
-          <a href="#" className="text-xs hover:text-white transition-colors">Support</a>
+          <Link to="/about"   className="text-xs hover:text-white transition-colors">About Us</Link>
+          <Link to="/contact" className="text-xs hover:text-white transition-colors">Contact Us</Link>
+          <a href="#"         className="text-xs hover:text-white transition-colors">Terms of Service</a>
+          <a href="#"         className="text-xs hover:text-white transition-colors">Support</a>
         </FooterSection>
 
         <FooterSection title="System Status">
@@ -119,9 +126,9 @@ export default function MainLayout() {
 
         <FooterSection title="Location">
           <div className="text-gray-500 text-xs space-y-1">
-            <p>45.4215° N, 75.6972° W</p>
-            <p>Elevation: 70m ASL</p>
-            <p>Temp: 20.0°C ±0.1°C</p>
+            <p>A/P Male, Tal. Panhala</p>
+            <p>Dist. Kolhapur – 416122</p>
+            <p>Maharashtra, India</p>
           </div>
         </FooterSection>
       </footer>

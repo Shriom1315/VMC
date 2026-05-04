@@ -100,9 +100,12 @@
   header, footer, nav, aside {
     display: none !important;
   }
+  /* Admin layout: make content fill full width */
   main {
+    width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+    overflow: visible !important;
   }
   input, textarea, select {
     border: none !important;
