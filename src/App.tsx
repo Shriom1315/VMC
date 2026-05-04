@@ -25,7 +25,14 @@ import {
   Layers,
   Printer,
   FileDown,
-  Trash2
+  Trash2,
+  ChevronDown,
+  ShoppingBag,
+  BarChart2,
+  UserPlus,
+  PieChart,
+  LogOut,
+  LayoutDashboard
 } from "lucide-react";
 import { useState, ReactNode, ChangeEvent, useEffect, useMemo } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
@@ -125,113 +132,124 @@ function SearchAutocomplete() {
 }
 
 export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/admin/*" element={<AdminLayout />} />
+        <Route path="/*" element={<MainLayout />} />
+      </Routes>
+    </Router>
+  );
+}
+
+function MainLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col font-sans relative overflow-x-hidden">
-        {/* Header */}
-        <header className="bg-white dark:bg-black font-display tracking-widest text-xs uppercase border-b-2 border-black dark:border-white sticky top-0 flex justify-between items-center w-full h-16 px-4 md:px-6 z-50">
-          <div className="flex items-center gap-4 md:gap-8 overflow-hidden">
-            <Link to="/" className="text-sm md:text-xl font-black text-black dark:text-white tracking-tighter truncate">
-              VIKRAMADITYA METROLOGY
-            </Link>
-            <nav className="hidden md:flex items-center h-full border-l border-[#c8c6c5] dark:border-gray-800 pl-4 space-x-2">
-              <NavLink label="HOME" to="/" />
-              <NavLink label="QUOTATION" to="/quotation" />
-              <NavLink label="PURCHASE ORDER" to="/po" />
-              <NavLink label="MATERIAL INWARD" to="/inward" />
-            </nav>
+    <div className="min-h-screen flex flex-col font-sans relative overflow-x-hidden">
+      {/* Header */}
+      <header className="bg-white dark:bg-black font-display tracking-widest text-xs uppercase border-b-2 border-black dark:border-white sticky top-0 flex justify-between items-center w-full h-16 px-4 md:px-6 z-50">
+        <div className="flex items-center gap-4 md:gap-8 overflow-hidden">
+          <Link to="/" className="text-sm md:text-xl font-black text-black dark:text-white tracking-tighter truncate">
+            VIKRAMADITYA METROLOGY
+          </Link>
+          <nav className="hidden md:flex items-center h-full border-l border-[#c8c6c5] dark:border-gray-800 pl-4 space-x-2">
+            <NavLink label="HOME" to="/" />
+            <NavLink label="QUOTATION" to="/quotation" />
+            <NavLink label="PURCHASE ORDER" to="/po" />
+            <NavLink label="MATERIAL INWARD" to="/inward" />
+            <NavLink label="ADMIN" to="/admin" />
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-4">
+          <SearchAutocomplete />
+          <button className="hidden sm:block bg-brand-orange text-white font-mono text-xs px-6 py-2 border-2 border-brand-orange hover:bg-black hover:text-white transition-all">
+            SYSTEM_SYNC
+          </button>
+          <button className="hidden sm:block bg-transparent border-2 border-black dark:border-white text-black dark:text-white font-mono text-xs px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
+            DATA_EX
+          </button>
+          <button 
+            className="md:hidden text-black dark:text-white"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden fixed top-16 left-0 w-full bg-white dark:bg-black border-b-2 border-black z-40 p-4 flex flex-col gap-4 font-display text-sm tracking-widest uppercase"
+          >
+            <Link to="/" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">HOME</Link>
+            <Link to="/quotation" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">QUOTATION</Link>
+            <Link to="/po" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">PURCHASE ORDER</Link>
+            <Link to="/inward" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">MATERIAL INWARD</Link>
+            <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">ADMIN</Link>
+            <div className="flex gap-2 pt-2">
+              <button className="flex-1 bg-brand-orange text-white py-3 text-xs font-mono">SYSTEM_SYNC</button>
+              <button className="flex-1 border-2 border-black dark:border-white py-3 text-xs font-mono">DATA_EX</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/quotation" element={<QuotationPage />} />
+          <Route path="/po" element={<PurchaseOrderPage />} />
+          <Route path="/inward" element={<MaterialInwardPage />} />
+        </Routes>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-industrial-low font-display text-xs uppercase tracking-[0.2em] p-6 md:p-12 lg:p-16 border-t-2 border-black grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mt-12">
+        <div className="flex flex-col gap-4">
+          <div className="text-brand-orange font-black text-xl tracking-tighter">VIKRAMADITYA</div>
+          <p className="text-gray-500 leading-relaxed max-w-[200px]">
+            © 2026 VIKRAMADITYA METROLOGY CENTER. ALL SPECIFICATIONS SUBJECT TO ISO 17025.
+          </p>
+        </div>
+        
+        <FooterSection title="SYSTEM_LINKS">
+          <a href="#" className="hover:text-brand-orange transition-colors">TERMS_OF_SERVICE</a>
+          <a href="#" className="hover:text-brand-orange transition-colors">CALIBRATION_LOGS</a>
+          <a href="#" className="hover:text-brand-orange transition-colors">CONTACT_ENG</a>
+          <a href="#" className="hover:text-brand-orange transition-colors">SUPPORT_TICKET</a>
+        </FooterSection>
+
+        <FooterSection title="NODE_STATUS">
+          <div className="flex justify-between items-center text-gray-500">
+            <span>MAIN_SERVER</span>
+            <span className="text-green-500">ONLINE</span>
           </div>
-
-          <div className="flex items-center gap-2 md:gap-4">
-            <SearchAutocomplete />
-            <button className="hidden sm:block bg-brand-orange text-white font-mono text-xs px-6 py-2 border-2 border-brand-orange hover:bg-black hover:text-white transition-all">
-              SYSTEM_SYNC
-            </button>
-            <button className="hidden sm:block bg-transparent border-2 border-black dark:border-white text-black dark:text-white font-mono text-xs px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-              DATA_EX
-            </button>
-            <button 
-              className="md:hidden text-black dark:text-white"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+          <div className="flex justify-between items-center text-gray-500">
+            <span>CMM_INTERFACE</span>
+            <span className="text-green-500">ONLINE</span>
           </div>
-        </header>
-
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="md:hidden fixed top-16 left-0 w-full bg-white dark:bg-black border-b-2 border-black z-40 p-4 flex flex-col gap-4 font-display text-sm tracking-widest uppercase"
-            >
-              <Link to="/" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">HOME</Link>
-              <Link to="/quotation" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">QUOTATION</Link>
-              <Link to="/po" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">PURCHASE ORDER</Link>
-              <Link to="/inward" onClick={() => setIsMenuOpen(false)} className="p-2 border-b border-gray-100">MATERIAL INWARD</Link>
-              <div className="flex gap-2 pt-2">
-                <button className="flex-1 bg-brand-orange text-white py-3 text-xs font-mono">SYSTEM_SYNC</button>
-                <button className="flex-1 border-2 border-black dark:border-white py-3 text-xs font-mono">DATA_EX</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/quotation" element={<QuotationPage />} />
-            <Route path="/po" element={<PurchaseOrderPage />} />
-            <Route path="/inward" element={<MaterialInwardPage />} />
-          </Routes>
-        </main>
-
-        {/* Footer */}
-        <footer className="bg-gray-900 text-industrial-low font-display text-xs uppercase tracking-[0.2em] p-6 md:p-12 lg:p-16 border-t-2 border-black grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mt-12">
-          <div className="flex flex-col gap-4">
-            <div className="text-brand-orange font-black text-xl tracking-tighter">VIKRAMADITYA</div>
-            <p className="text-gray-500 leading-relaxed max-w-[200px]">
-              © 2026 VIKRAMADITYA METROLOGY CENTER. ALL SPECIFICATIONS SUBJECT TO ISO 17025.
-            </p>
+          <div className="flex justify-between items-center text-gray-500">
+            <span>DATA_VAULT</span>
+            <span className="text-brand-orange">SYNCING</span>
           </div>
-          
-          <FooterSection title="SYSTEM_LINKS">
-            <a href="#" className="hover:text-brand-orange transition-colors">TERMS_OF_SERVICE</a>
-            <a href="#" className="hover:text-brand-orange transition-colors">CALIBRATION_LOGS</a>
-            <a href="#" className="hover:text-brand-orange transition-colors">CONTACT_ENG</a>
-            <a href="#" className="hover:text-brand-orange transition-colors">SUPPORT_TICKET</a>
-          </FooterSection>
+        </FooterSection>
 
-          <FooterSection title="NODE_STATUS">
-            <div className="flex justify-between items-center text-gray-500">
-              <span>MAIN_SERVER</span>
-              <span className="text-green-500">ONLINE</span>
-            </div>
-            <div className="flex justify-between items-center text-gray-500">
-              <span>CMM_INTERFACE</span>
-              <span className="text-green-500">ONLINE</span>
-            </div>
-            <div className="flex justify-between items-center text-gray-500">
-              <span>DATA_VAULT</span>
-              <span className="text-brand-orange">SYNCING</span>
-            </div>
-          </FooterSection>
-
-          <FooterSection title="LOCATION_DATA">
-            <div className="text-gray-500 space-y-1">
-              <p>COORD: 45.4215° N, 75.6972° W</p>
-              <p>ELEV: 70M ASL</p>
-              <p>TEMP_CONTROL: 20.0°C ±0.1°C</p>
-            </div>
-          </FooterSection>
-        </footer>
-      </div>
-    </Router>
+        <FooterSection title="LOCATION_DATA">
+          <div className="text-gray-500 space-y-1">
+            <p>COORD: 45.4215° N, 75.6972° W</p>
+            <p>ELEV: 70M ASL</p>
+            <p>TEMP_CONTROL: 20.0°C ±0.1°C</p>
+          </div>
+        </FooterSection>
+      </footer>
+    </div>
   );
 }
 
@@ -295,7 +313,7 @@ function HomePage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard label="ACTIVE_QUOTES" value="128" delta="+12%" />
-        <statCard label="PENDING_POs" value="45" delta="-3%" />
+        <StatCard label="PENDING_POs" value="45" delta="-3%" />
         <StatCard label="INWARD_LOTS" value="892" delta="+24%" />
         <StatCard label="SYS_UPTIME" value="99.9%" delta="STABLE" />
       </div>
@@ -468,7 +486,7 @@ function QuotationPage() {
     // Terms text (left side)
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "italic");
-    const termsText = "Serviceing , Contact point, Bush fitting, Spring, Roller Set , Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass. Gear, Rack ,Zebra connector, Lock Ball.";
+    const termsText = "Servicing, Contact point, Bush fitting, Spring, Roller Set, Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass, Gear, Rack, Zebra connector, Lock Ball.";
     const splitTerms = doc.splitTextToSize(termsText, termsW - 4);
     doc.text(splitTerms, marginL + 2, footerY + 4);
 
@@ -740,14 +758,14 @@ function QuotationPage() {
             {/* Left: italic note + Terms */}
             <div className="">
               <div className="px-2 py-1.5 text-[9px] italic leading-snug text-black border-b border-black">
-                Serviceing , Contact point, Bush fitting, Spring, Roller Set , Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass. Gear, Rack ,Zebra connector, Lock Ball.
+                Servicing, Contact point, Bush fitting, Spring, Roller Set, Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass, Gear, Rack, Zebra connector, Lock Ball.
               </div>
               <div className="px-2 py-1.5">
                 <p className="font-bold underline text-[9px] uppercase mb-1 text-black">Terms &amp; Conditions</p>
                 <div className="text-[9px] text-black space-y-0.5">
                   <p>Discount {discountPercent} %</p>
                   <p>Validity :- 30 Days from date of our quotation</p>
-                  <p>Delivery :- 8 to 10 Day</p>
+                  <p>Delivery :- 8 to 10 Days</p>
                   <p>GST :-Extra as applicable 18%</p>
                   <p>Payment :- Against Delivery</p>
                 </div>
@@ -768,8 +786,10 @@ function QuotationPage() {
                   <span className="print:hidden">
                     <input
                       type="number"
+                      min="0"
+                      max="100"
                       value={discountPercent}
-                      onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
                       className="w-7 outline-none border-b border-black text-black text-center"
                     />
                   </span>
@@ -1204,16 +1224,13 @@ function InwardRow({ id, po, client, desc, qty, status, alert = false, active = 
 
 // --- Helper Components ---
 
-function ModuleAccents({ label }: { label: string }) {
+function ModuleAccents({ label }: { label?: string }) {
   return (
     <>
       <div className="crosshair crosshair-tl -top-[1px] -left-[1px]" />
       <div className="crosshair crosshair-tr -top-[1px] -right-[1px]" />
       <div className="crosshair crosshair-bl -bottom-[1px] -left-[1px]" />
       <div className="crosshair crosshair-br -bottom-[1px] -right-[1px]" />
-      <div className="absolute top-0 left-0 bg-black text-white font-mono text-[11px] px-2 py-1 uppercase tracking-widest z-10">
-        {label}
-      </div>
     </>
   );
 }
@@ -1302,5 +1319,695 @@ function FooterSection({ title, children }: { title: string; children: ReactNode
         {children}
       </div>
     </div>
+  );
+}
+
+// --- Party Registration Page ---
+interface Party {
+  id: number;
+  name: string;
+  address: string;
+  contact: string;
+  gstNo: string;
+  email: string;
+}
+
+const INITIAL_PARTIES: Party[] = [
+  { id: 12,  name: "ANWITA ENTERPRISES",                    address: "DR. J.J. MAGDUM HSG. SOC. PLOT NO. 37, MOUJE AGAR JAYSINGPUR, TAL. SHIROL, DIST- KOLHAPUR", contact: "7757865993", gstNo: "27APJPC2174D1Z8", email: "-" },
+  { id: 56,  name: "Sound Castings Pvt. Ltd. Unit-3",       address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.", contact: "7744053500", gstNo: "27AACCS5263N1ZW", email: "pratiraj.patil@soundcastings.com" },
+  { id: 105, name: "SHRI DATTA FOUNDERS AND ENGINEERS PVT.LTD.", address: "B-33, M.I.D.C. SHIROLI, KOLHAPUR-416122", contact: "9049879305", gstNo: "27AANCS0625R1ZM", email: "vishalpadalkar.sdf@gmail.com" },
+  { id: 572, name: "ASHTVINAYAK ENGINEERS",                 address: "KUSHIRE",                                                                                    contact: "-",          gstNo: "-",              email: "-" },
+  { id: 686, name: "SAMRUDDHI ENGINEERS",                   address: "Gat No. 522/1, Plot No. 2, Vijaynagar, Nerli, MIDC Gokul Shirgaon, Kolhapur- 416 234",      contact: "9890249086", gstNo: "27AKYPM5715A1ZY", email: "smruddhi.3@gmail.com" },
+  { id: 843, name: "EAGAR STAR",                            address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                               contact: "-",          gstNo: "27AAJFE7714N1ZX", email: "-" },
+  { id: 848, name: "Sound Castings Pvt. Ltd. Unit-3 (IFDC)", address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",      contact: "9970678872", gstNo: "27AACCS5263N1ZW", email: "Shekhar.Khot@soundcastings.com" },
+  { id: 849, name: "QA SOUND CASTING PVT. LTD.",            address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",       contact: "8805967627", gstNo: "27AACCS5263N1ZW", email: "paresh.bhagwat@soundcastings.com" },
+  { id: 850, name: "AATHARV ENTERPRISES",                   address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                               contact: "8180909007", gstNo: "27EMHPP4751A1Z2", email: "-" },
+  { id: 859, name: "METACAST AUTO PRIVATE LIMITED",         address: "PLOT NO.T-26 KAGAL - HATKANANGALE FIVE STAR INDUSTRIAL AREA KOLHAPUR",                       contact: "-",          gstNo: "27AAQCM8947H1ZO", email: "-" },
+];
+
+function PartyRegistrationPage() {
+  // ── Form state ──
+  const [regNo,          setRegNo]          = useState("");
+  const [companyName,    setCompanyName]    = useState("");
+  const [contactPerson,  setContactPerson]  = useState("");
+  const [address,        setAddress]        = useState("");
+  const [email,          setEmail]          = useState("");
+  const [contact,        setContact]        = useState("");
+  const [gstNo,          setGstNo]          = useState("");
+  const [gstType,        setGstType]        = useState("CGST/SGST");
+  const [otherAccess,    setOtherAccess]    = useState("No");
+  const [billingRateType,setBillingRateType]= useState("Fixed Discount %");
+  const [discountRate,   setDiscountRate]   = useState("");
+  const [collabMethod,   setCollabMethod]   = useState("Lab Method");
+  const [reportingMethod,setReportingMethod]= useState("Lab Format");
+  const [collationMethod,setCollationMethod]= useState("By Hand");
+  const [dispatchMethod, setDispatchMethod] = useState("By Hand");
+  const [compliance,     setCompliance]     = useState("Required");
+  const [decisionRule,   setDecisionRule]   = useState("Yes");
+  const [billingFirm,    setBillingFirm]    = useState("Vikramaditya Calibration");
+
+  // ── Table state ──
+  const [parties,     setParties]     = useState<Party[]>(INITIAL_PARTIES);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId,   setEditingId]   = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+
+  const resetForm = () => {
+    setRegNo(""); setCompanyName(""); setContactPerson(""); setAddress("");
+    setEmail(""); setContact(""); setGstNo(""); setEditingId(null);
+  };
+
+  const handleSave = () => {
+    if (!companyName.trim()) return;
+    if (editingId !== null) {
+      setParties(parties.map(p => p.id === editingId
+        ? { ...p, name: companyName, address, contact, gstNo, email }
+        : p
+      ));
+    } else {
+      const newId = Math.max(...parties.map(p => p.id)) + 1;
+      setParties([...parties, { id: newId, name: companyName, address, contact, gstNo, email }]);
+    }
+    resetForm();
+  };
+
+  const handleSelect = (p: Party) => {
+    setEditingId(p.id);
+    setCompanyName(p.name);
+    setAddress(p.address);
+    setContact(p.contact === "-" ? "" : p.contact);
+    setGstNo(p.gstNo === "-" ? "" : p.gstNo);
+    setEmail(p.email === "-" ? "" : p.email);
+  };
+
+  const handleDelete = () => {
+    if (editingId !== null) setParties(parties.filter(p => p.id !== editingId));
+    resetForm();
+  };
+
+  const filtered = parties.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.gstNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filtered.length / rowsPerPage);
+  const paginated  = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const fieldCls = "w-full bg-white border border-gray-300 text-black text-xs px-2 py-1.5 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-colors";
+  const selectCls = "w-full bg-white border border-gray-300 text-black text-xs px-2 py-1.5 focus:outline-none focus:border-brand-orange appearance-none cursor-pointer";
+  const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1";
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1400px] mx-auto w-full flex flex-col gap-6">
+
+      {/* ── PAGE TITLE BAR ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-black uppercase tracking-tight text-black">Party Registration</h1>
+          <p className="font-mono text-[10px] text-gray-400 mt-0.5">BASIC_REG // PARTY_NODE</p>
+        </div>
+        <div className="flex items-center gap-2 font-mono text-[10px] text-gray-400">
+          <span>ADMIN</span><span className="text-gray-300">/</span>
+          <span>BASIC REGISTRATION</span><span className="text-gray-300">/</span>
+          <span className="text-brand-orange font-bold">PARTY</span>
+        </div>
+      </div>
+
+      {/* ── FORM PANEL ── */}
+      <div className="bg-white border-2 border-black shadow-sm">
+        {/* Panel header */}
+        <div className="bg-black text-white px-4 py-2 flex items-center justify-between">
+          <span className="font-display font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+            <UserPlus size={13} /> Enter Party Details
+          </span>
+          <div className="flex items-center gap-3 font-mono text-[10px] text-gray-400">
+            <span>{editingId !== null ? `EDITING ID: ${editingId}` : "NEW ENTRY"}</span>
+          </div>
+        </div>
+
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+
+          {/* Row 1 */}
+          <div>
+            <label className={labelCls}>Reg. No</label>
+            <input value={regNo} onChange={e => setRegNo(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+          <div>
+            <label className={labelCls}>Company Name</label>
+            <input value={companyName} onChange={e => setCompanyName(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+
+          {/* Row 2 */}
+          <div>
+            <label className={labelCls}>Contact Person</label>
+            <input value={contactPerson} onChange={e => setContactPerson(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+          <div>
+            <label className={labelCls}>Address</label>
+            <input value={address} onChange={e => setAddress(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+
+          {/* Row 3 */}
+          <div>
+            <label className={labelCls}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+          <div>
+            <label className={labelCls}>Contact</label>
+            <input value={contact} onChange={e => setContact(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+
+          {/* Row 4 */}
+          <div>
+            <label className={labelCls}>GST No</label>
+            <input value={gstNo} onChange={e => setGstNo(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+          <div>
+            <label className={labelCls}>GST Type</label>
+            <div className="relative">
+              <select value={gstType} onChange={e => setGstType(e.target.value)} className={selectCls}>
+                <option>CGST/SGST</option><option>IGST</option><option>Exempt</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 5 */}
+          <div>
+            <label className={labelCls}>Other Access to</label>
+            <div className="relative">
+              <select value={otherAccess} onChange={e => setOtherAccess(e.target.value)} className={selectCls}>
+                <option>No</option><option>Yes</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Billing Rate Type</label>
+            <div className="relative">
+              <select value={billingRateType} onChange={e => setBillingRateType(e.target.value)} className={selectCls}>
+                <option>Fixed Discount %</option><option>Custom Rate</option><option>Standard Rate</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 6 */}
+          <div>
+            <label className={labelCls}>Discount Rate (%)</label>
+            <input type="number" value={discountRate} onChange={e => setDiscountRate(e.target.value)} className={fieldCls} placeholder="" />
+          </div>
+          <div>
+            <label className={labelCls}>Collaboration Method to be used</label>
+            <div className="relative">
+              <select value={collabMethod} onChange={e => setCollabMethod(e.target.value)} className={selectCls}>
+                <option>Lab Method</option><option>Customer Method</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 7 */}
+          <div>
+            <label className={labelCls}>Method of Reporting</label>
+            <div className="relative">
+              <select value={reportingMethod} onChange={e => setReportingMethod(e.target.value)} className={selectCls}>
+                <option>Lab Format</option><option>Customer Format</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Method of Collation</label>
+            <div className="relative">
+              <select value={collationMethod} onChange={e => setCollationMethod(e.target.value)} className={selectCls}>
+                <option>By Hand</option><option>Digital</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 8 */}
+          <div>
+            <label className={labelCls}>Method of Dispatch</label>
+            <div className="relative">
+              <select value={dispatchMethod} onChange={e => setDispatchMethod(e.target.value)} className={selectCls}>
+                <option>By Hand</option><option>Courier</option><option>Email</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Compliance Statement</label>
+            <div className="relative">
+              <select value={compliance} onChange={e => setCompliance(e.target.value)} className={selectCls}>
+                <option>Required</option><option>Not Required</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 9 */}
+          <div>
+            <label className={labelCls}>If yes Decision Rule is discussed, understand &amp; acceptable or not</label>
+            <div className="relative">
+              <select value={decisionRule} onChange={e => setDecisionRule(e.target.value)} className={selectCls}>
+                <option>Yes</option><option>No</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Billing Firm</label>
+            <div className="relative">
+              <select value={billingFirm} onChange={e => setBillingFirm(e.target.value)} className={selectCls}>
+                <option>Vikramaditya Calibration</option><option>Vikramaditya Enterprises</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Action buttons */}
+        <div className="px-5 pb-5 flex items-center gap-2 border-t border-gray-100 pt-4">
+          <button
+            onClick={handleSave}
+            className="bg-brand-orange text-white font-mono text-xs font-bold px-5 py-2 border-2 border-brand-orange hover:bg-black transition-all uppercase tracking-widest"
+          >
+            Save
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={editingId === null}
+            className="bg-white text-black font-mono text-xs font-bold px-5 py-2 border-2 border-black hover:bg-gray-100 transition-all uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Update
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={editingId === null}
+            className="bg-white text-red-600 font-mono text-xs font-bold px-5 py-2 border-2 border-red-300 hover:bg-red-50 transition-all uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Delete
+          </button>
+          {editingId !== null && (
+            <button
+              onClick={resetForm}
+              className="bg-white text-gray-500 font-mono text-xs px-4 py-2 border border-gray-300 hover:bg-gray-50 transition-all uppercase tracking-widest"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── PARTY TABLE ── */}
+      <div className="bg-white border-2 border-black shadow-sm">
+        {/* Table header bar */}
+        <div className="bg-black text-white px-4 py-2 flex items-center justify-between">
+          <span className="font-display font-bold text-xs uppercase tracking-widest">Total Party</span>
+          <span className="font-mono text-[10px] text-gray-400">{filtered.length} RECORDS</span>
+        </div>
+
+        {/* Toolbar */}
+        <div className="px-4 py-3 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {["Copy", "CSV", "Excel", "PDF", "Print"].map(btn => (
+              <button key={btn} className="font-mono text-[10px] font-bold uppercase px-3 py-1 border border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-black transition-all">
+                {btn}
+              </button>
+            ))}
+            <button className="font-mono text-[10px] font-bold uppercase px-3 py-1 border border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-black transition-all flex items-center gap-1">
+              Column Visibility <ChevronDown size={10} />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-gray-500 uppercase">Search:</span>
+            <div className="relative">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="border border-gray-300 text-xs pl-6 pr-3 py-1 focus:outline-none focus:border-brand-orange w-44"
+                placeholder=""
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+            <thead>
+              <tr className="border-b-2 border-black bg-gray-50">
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200 w-14">
+                  <span className="flex items-center gap-1">Id <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200 w-52">
+                  <span className="flex items-center gap-1">Name <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200">
+                  <span className="flex items-center gap-1">Address <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200 w-28">
+                  <span className="flex items-center gap-1">Contact <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200 w-36">
+                  <span className="flex items-center gap-1">GST No <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 border-r border-gray-200">
+                  <span className="flex items-center gap-1">Email <span className="text-gray-400 font-normal">↕</span></span>
+                </th>
+                <th className="px-3 py-2 font-bold uppercase tracking-wider text-gray-700 w-20 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400 font-mono text-xs">
+                    NO_RECORDS_FOUND
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-gray-100 hover:bg-orange-50 transition-colors ${editingId === p.id ? "bg-orange-50 border-l-2 border-l-brand-orange" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                  >
+                    <td className="px-3 py-2 font-mono text-gray-500 border-r border-gray-100">{p.id}</td>
+                    <td className="px-3 py-2 font-bold text-black border-r border-gray-100">{p.name}</td>
+                    <td className="px-3 py-2 text-gray-600 border-r border-gray-100 max-w-xs truncate" title={p.address}>{p.address}</td>
+                    <td className="px-3 py-2 font-mono text-gray-600 border-r border-gray-100">{p.contact}</td>
+                    <td className="px-3 py-2 font-mono text-gray-600 border-r border-gray-100">{p.gstNo}</td>
+                    <td className="px-3 py-2 text-gray-600 border-r border-gray-100 max-w-[180px] truncate" title={p.email}>{p.email}</td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        onClick={() => handleSelect(p)}
+                        className="bg-brand-orange text-white font-mono text-[10px] font-bold px-3 py-1 hover:bg-black transition-all uppercase"
+                      >
+                        Select
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <span className="font-mono text-[10px] text-gray-500">
+            Showing {filtered.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filtered.length)} of {filtered.length} entries
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="font-mono text-[10px] px-3 py-1 border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Previous
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
+              <button
+                key={pg}
+                onClick={() => setCurrentPage(pg)}
+                className={`font-mono text-[10px] px-3 py-1 border transition-all ${currentPage === pg ? "bg-brand-orange text-white border-brand-orange" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+              >
+                {pg}
+              </button>
+            ))}
+            {totalPages > 5 && <span className="font-mono text-[10px] text-gray-400 px-1">...</span>}
+            {totalPages > 5 && (
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                className={`font-mono text-[10px] px-3 py-1 border transition-all ${currentPage === totalPages ? "bg-brand-orange text-white border-brand-orange" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+              >
+                {totalPages}
+              </button>
+            )}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="font-mono text-[10px] px-3 py-1 border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </motion.div>
+  );
+}
+
+// --- Admin Components ---
+const PlaceholderPage = ({ title }: { title: string }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1600px] mx-auto w-full">
+    <div className="bg-white border border-gray-200 rounded-lg p-12 flex flex-col items-center justify-center min-h-[400px] shadow-sm relative overflow-hidden">
+       <div className="absolute inset-0 blueprint-grid opacity-[0.03] pointer-events-none" />
+       
+       <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-6 relative z-10 border border-gray-100">
+         <HardDrive size={32} className="text-gray-400" />
+       </div>
+       <h1 className="text-xl md:text-2xl font-semibold font-sans text-gray-900 mb-3 relative z-10 text-center">{title}</h1>
+       <p className="font-sans text-sm text-gray-500 relative z-10 text-center max-w-sm">
+         This module is currently under development. Please check back later for updates.
+       </p>
+       
+       <Link to="/admin" className="mt-8 bg-white text-gray-700 font-sans font-medium text-sm px-6 py-2 border border-gray-300 hover:bg-gray-50 transition-all relative z-10 rounded-md shadow-sm">
+          Return to Dashboard
+       </Link>
+    </div>
+  </motion.div>
+);
+
+function AdminLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  return (
+    <div className="min-h-screen flex font-sans overflow-hidden bg-industrial-bg text-industrial-text">
+      {/* Sidebar */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div 
+            initial={{ width: 0, x: -280 }}
+            animate={{ width: 280, x: 0 }}
+            exit={{ width: 0, x: -280 }}
+            className="h-screen sticky top-0 bg-white border-r-2 border-black flex flex-col shrink-0 overflow-y-auto z-20"
+          >
+            <div className="p-5 border-b-2 border-black flex items-center justify-between sticky top-0 bg-white z-10">
+               <Link to="/" className="font-black text-xl tracking-tighter uppercase text-black hover:text-brand-orange transition-colors">VIKRAMADITYA</Link>
+               <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 border border-gray-200">ADMIN_NODE</span>
+            </div>
+            <AdminSidebar />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 bg-industrial-bg blueprint-grid relative">
+        {/* Admin Header */}
+        <header className="bg-white border-b-2 border-black h-16 flex items-center px-4 md:px-8 justify-between shrink-0 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-black hover:text-brand-orange transition-colors">
+              <Menu size={20} />
+            </button>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <span className="font-display font-bold text-sm tracking-widest uppercase">Main Dashboard</span>
+          </div>
+          <div className="text-[10px] font-mono tracking-widest uppercase flex gap-2">
+            <Link to="/admin" className="text-gray-500 hover:text-brand-orange">Home</Link> 
+            <span className="text-gray-300">/</span> 
+            <span className="text-black font-bold">Main DashBoard</span>
+          </div>
+        </header>
+        
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <Routes>
+            <Route path="/" element={<AdminDashboardHome />} />
+            <Route path="/basic-registration/party" element={<PartyRegistrationPage />} />
+            <Route path="/basic-registration/gauge-info" element={<PlaceholderPage title="Gauge Info Registration" />} />
+            <Route path="/basic-registration/new-equipment" element={<PlaceholderPage title="New Equipement" />} />
+            <Route path="/basic-registration/equipment-hist" element={<PlaceholderPage title="Equipement Hist.Reg" />} />
+            <Route path="/basic-registration/uncertainty" element={<PlaceholderPage title="Uncertainty Reg" />} />
+            <Route path="/basic-registration/scope" element={<PlaceholderPage title="Scope Registration" />} />
+            <Route path="/basic-registration/thread-specs" element={<PlaceholderPage title="Thead/Ring/Plug Spe." />} />
+            <Route path="/basic-registration/taper-thread" element={<PlaceholderPage title="Taper Thread Reading" />} />
+            <Route path="/basic-registration/reading-masters" element={<PlaceholderPage title="Reading Masters" />} />
+            <Route path="/basic-registration/inst-repair" element={<PlaceholderPage title="Inst.Repair Master" />} />
+            <Route path="/basic-registration/dial-table" element={<PlaceholderPage title="Dial Table Master" />} />
+            <Route path="/basic-registration/rate" element={<PlaceholderPage title="Rate Reg." />} />
+            <Route path="/basic-registration/custom-po" element={<PlaceholderPage title="Custom PO Rate Master" />} />
+            <Route path="/basic-registration/firm-creation" element={<PlaceholderPage title="Firm Creation" />} />
+            <Route path="/transactions/quotation" element={<PlaceholderPage title="Quotation" />} />
+            <Route path="/transactions/purchase-order" element={<PlaceholderPage title="Purchase Order" />} />
+            <Route path="/transactions/inward" element={<PlaceholderPage title="Material Inward" />} />
+            <Route path="/transactions/calib-status" element={<PlaceholderPage title="Calibration Status" />} />
+            <Route path="/transactions/dispatch" element={<PlaceholderPage title="Dispatch" />} />
+            <Route path="/transactions/sales-invoice" element={<PlaceholderPage title="Sales Invoice" />} />
+            <Route path="/transactions/receipt" element={<PlaceholderPage title="Reciept" />} />
+            <Route path="/reports/total-quotations" element={<PlaceholderPage title="Total Quotations" />} />
+            <Route path="/reports/total-pos" element={<PlaceholderPage title="Total PO's" />} />
+            <Route path="/reports/cert-history" element={<PlaceholderPage title="Certificate History" />} />
+            <Route path="/reports/outstanding" element={<PlaceholderPage title="Outstanding" />} />
+            <Route path="/reports/ledger" element={<PlaceholderPage title="Ledger" />} />
+            <Route path="/reports/sales-gst" element={<PlaceholderPage title="Sales GST Report" />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function AdminSidebar() {
+  const location = useLocation();
+  const [openMenus, setOpenMenus] = useState<string[]>(['basic-registration']);
+
+  const toggleMenu = (menu: string) => {
+    setOpenMenus(prev => prev.includes(menu) ? prev.filter(m => m !== menu) : [...prev, menu]);
+  };
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const SubMenuItem = ({ label, to }: { label: string; to: string }) => {
+    const active = isActive(to);
+    return (
+      <Link to={to} className={`flex items-center pl-10 pr-4 py-2.5 text-[13px] font-sans font-medium transition-colors border-l-2 ${active ? 'border-brand-orange bg-orange-50 text-brand-orange font-bold' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-black'}`}>
+        <span className="w-4 h-4 mr-2 flex justify-center items-center">
+          {active ? <span className="w-1.5 h-1.5 bg-brand-orange rounded-full"></span> : <span className="w-1.5 h-1.5 bg-gray-300 rounded-full"></span>}
+        </span>
+        {label}
+      </Link>
+    );
+  };
+
+  const MenuButton = ({ id, label, icon: Icon }: any) => {
+    const isOpen = openMenus.includes(id);
+    return (
+      <button onClick={() => toggleMenu(id)} className={`w-full flex items-center justify-between px-5 py-4 text-sm font-semibold font-sans hover:bg-gray-50 transition-colors border-b ${isOpen ? 'border-gray-200 bg-gray-50 text-black' : 'border-gray-100 text-gray-700'} group`}>
+        <div className="flex items-center gap-3">
+          <Icon size={18} className={`${isOpen ? 'text-brand-orange' : 'text-gray-400 group-hover:text-brand-orange'} transition-colors`} />
+          <span>{label}</span>
+        </div>
+        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180 text-black' : ''}`} />
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex-1 py-2 flex flex-col bg-white">
+      {/* Basic Registration */}
+      <div>
+        <MenuButton id="basic-registration" label="Basic Registration" icon={LayoutDashboard} />
+        <AnimatePresence>
+          {openMenus.includes('basic-registration') && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-white border-b border-gray-100">
+              <SubMenuItem label="Party Registartion" to="/admin/basic-registration/party" />
+              <SubMenuItem label="Gauge Info Registartion" to="/admin/basic-registration/gauge-info" />
+              <SubMenuItem label="New Equipement" to="/admin/basic-registration/new-equipment" />
+              <SubMenuItem label="Equipement Hist.Reg" to="/admin/basic-registration/equipment-hist" />
+              <SubMenuItem label="Uncertainty Reg" to="/admin/basic-registration/uncertainty" />
+              <SubMenuItem label="Scope Registration" to="/admin/basic-registration/scope" />
+              <SubMenuItem label="Thead/Ring/Plug Spe." to="/admin/basic-registration/thread-specs" />
+              <SubMenuItem label="Taper Thread Reading" to="/admin/basic-registration/taper-thread" />
+              <SubMenuItem label="Reading Masters" to="/admin/basic-registration/reading-masters" />
+              <SubMenuItem label="Inst.Repair Master" to="/admin/basic-registration/inst-repair" />
+              <SubMenuItem label="Dial Table Master" to="/admin/basic-registration/dial-table" />
+              <SubMenuItem label="Rate Reg." to="/admin/basic-registration/rate" />
+              <SubMenuItem label="Custom PO Rate Master" to="/admin/basic-registration/custom-po" />
+              <SubMenuItem label="Firm Creation" to="/admin/basic-registration/firm-creation" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Daily Transactions */}
+      <div>
+        <MenuButton id="daily-transactions" label="Daily Transactions" icon={FileText} />
+        <AnimatePresence>
+          {openMenus.includes('daily-transactions') && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-white border-b border-gray-100">
+              <SubMenuItem label="Quotation" to="/admin/transactions/quotation" />
+              <SubMenuItem label="Purchase Order" to="/admin/transactions/purchase-order" />
+              <SubMenuItem label="Inward" to="/admin/transactions/inward" />
+              <SubMenuItem label="Calibration Status" to="/admin/transactions/calib-status" />
+              <SubMenuItem label="Dispatch" to="/admin/transactions/dispatch" />
+              <SubMenuItem label="Sales Invoice" to="/admin/transactions/sales-invoice" />
+              <SubMenuItem label="Reciept" to="/admin/transactions/receipt" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Reports */}
+      <div>
+        <MenuButton id="reports" label="Reports" icon={BarChart2} />
+        <AnimatePresence>
+          {openMenus.includes('reports') && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-white border-b border-gray-100">
+              <SubMenuItem label="Total Quotations" to="/admin/reports/total-quotations" />
+              <SubMenuItem label="Total PO's" to="/admin/reports/total-pos" />
+              <SubMenuItem label="Certificate History" to="/admin/reports/cert-history" />
+              <SubMenuItem label="Outstanding" to="/admin/reports/outstanding" />
+              <SubMenuItem label="Ledger" to="/admin/reports/ledger" />
+              <SubMenuItem label="Sales GST Report" to="/admin/reports/sales-gst" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <Link to="/" className="w-full flex items-center gap-3 px-5 py-4 mt-auto text-sm font-semibold font-sans text-black border-t-2 border-black hover:bg-brand-orange hover:text-white transition-colors group bg-white">
+        <LogOut size={18} className="text-brand-orange group-hover:text-white transition-colors" />
+        <span>Exit Dashboard</span>
+      </Link>
+    </div>
+  );
+}
+
+function AdminDashboardHome() {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1600px] mx-auto w-full flex flex-col gap-8">
+      {/* Overview Banner */}
+      <section className="relative bg-white hairline-border p-6 md:p-8 lg:p-10 shadow-sm flex flex-col md:flex-row justify-between md:items-end gap-6 group">
+         <ModuleAccents label="SYS.ADMIN / OVERVIEW" />
+         <div>
+           <h1 className="font-display text-4xl md:text-5xl uppercase text-industrial-text leading-[0.9] tracking-tighter font-bold mb-2">
+             System Overview
+           </h1>
+           <p className="font-mono text-xs text-gray-500 tracking-widest uppercase flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+             Live telemetry and metric aggregation node
+           </p>
+         </div>
+         <div className="flex gap-2 relative z-10">
+           <button className="bg-brand-orange text-white font-mono text-xs px-6 py-3 border-2 border-brand-orange hover:bg-black transition-all">
+             GENERATE_REPORT
+           </button>
+         </div>
+      </section>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard label="Certificates Registered" value="1" delta="+1 This Week" />
+        <StatCard label="Register Enquirys" value="0" delta="STABLE" />
+        <StatCard label="Pending Enquirys" value="0" delta="STABLE" />
+        <StatCard label="Total Customers" value="0" delta="STABLE" />
+        <div className="lg:col-span-1">
+          <StatCard label="No.of CSC Agency" value="0" delta="STABLE" />
+        </div>
+      </div>
+      
+      {/* Wireframe Empty State for future sections */}
+      <div className="h-64 border-2 border-dashed border-[#c8c6c5] flex flex-col items-center justify-center bg-white/40">
+         <Activity size={32} className="text-gray-300 mb-3" />
+         <p className="font-mono text-[10px] text-gray-400 uppercase tracking-widest">AWAITING_FURTHER_DATA_INPUT // STANDBY</p>
+      </div>
+    </motion.div>
   );
 }
