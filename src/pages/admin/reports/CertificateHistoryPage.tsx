@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Printer, Download } from "lucide-react";
+import { supabase } from "../../../lib/supabase";
 
 interface Certificate {
   id: string;
@@ -14,12 +15,6 @@ interface Certificate {
   result: "pass" | "fail" | "conditional";
 }
 
-const MOCK_CERTS: Certificate[] = [
-  { id: "1", certNo: "VMC/2026/001", party: "Starfleet Command",  instrument: "Dial Indicator",   serialNo: "DI-1102", calibDate: "2026-05-01", dueDate: "2027-05-01", technician: "Priya Jadhav", result: "pass" },
-  { id: "2", certNo: "VMC/2026/002", party: "Cyberdyne Systems",  instrument: "Vernier Caliper",  serialNo: "VC-2201", calibDate: "2026-05-02", dueDate: "2027-05-02", technician: "Priya Jadhav", result: "pass" },
-  { id: "3", certNo: "VMC/2026/003", party: "Adeptus Mechanicus", instrument: "Thread Ring Gauge",serialNo: "TG-0078", calibDate: "2026-04-28", dueDate: "2027-04-28", technician: "Priya Jadhav", result: "conditional" },
-];
-
 const RESULT_COLOR = {
   pass:        "bg-green-100 text-green-700",
   fail:        "bg-red-100 text-red-700",
@@ -27,10 +22,49 @@ const RESULT_COLOR = {
 };
 
 export default function CertificateHistoryPage() {
-  const [search, setSearch] = useState("");
+  const [certs,   setCerts]   = useState<Certificate[]>([]);
+  const [search,  setSearch]  = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
-  const filtered = MOCK_CERTS.filter(c =>
+  useEffect(() => {
+    const fetchCerts = async () => {
+      setLoading(true);
+      setError(null);
+      const { data, error: err } = await supabase
+        .from("calib_jobs")
+        .select("*")
+        .eq("status", "generated");
+      if (err) {
+        setError(err.message);
+      } else {
+        setCerts(
+          (data ?? []).map((r: any) => ({
+            id:         String(r.id),
+            certNo:     r.cert_no ?? "",
+            party:      r.client_name ?? "",
+            instrument: r.name ?? "",
+            serialNo:   r.identification_no ?? "",
+            calibDate:  r.calib_date ?? "",
+            dueDate:    r.next_calib_date ?? "",
+            technician: r.calibrated_by ?? "",
+            result:     "pass" as const,
+          }))
+        );
+      }
+      setLoading(false);
+    };
+    fetchCerts();
+  }, []);
+
+  const filtered = certs.filter(c =>
     [c.certNo, c.party, c.instrument, c.serialNo].some(v => v.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-6 h-6 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
+    </div>
   );
 
   return (
@@ -41,6 +75,8 @@ export default function CertificateHistoryPage() {
         <h1 className="text-lg font-semibold text-text-primary">Certificate History</h1>
         <p className="text-xs text-text-secondary mt-0.5">All calibration certificates issued — searchable and printable</p>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5 mb-4">{error}</div>}
 
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">

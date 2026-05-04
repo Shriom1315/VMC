@@ -1,24 +1,15 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, UserPlus, Search } from "lucide-react";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
+import { supabase } from "../../lib/supabase";
 
 interface Party {
   id: number; name: string; address: string; contact: string; gstNo: string; email: string;
+  gstType: string; otherAccess: string; billingRateType: string; discountRate: string;
+  collabMethod: string; reportingMethod: string; collationMethod: string; dispatchMethod: string;
+  compliance: string; decisionRule: string; billingFirm: string;
 }
-
-const INITIAL_PARTIES: Party[] = [
-  { id: 12,  name: "ANWITA ENTERPRISES",                        address: "DR. J.J. MAGDUM HSG. SOC. PLOT NO. 37, MOUJE AGAR JAYSINGPUR, TAL. SHIROL, DIST- KOLHAPUR", contact: "7757865993", gstNo: "27APJPC2174D1Z8",  email: "-" },
-  { id: 56,  name: "Sound Castings Pvt. Ltd. Unit-3",           address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "7744053500", gstNo: "27AACCS5263N1ZW", email: "pratiraj.patil@soundcastings.com" },
-  { id: 105, name: "SHRI DATTA FOUNDERS AND ENGINEERS PVT.LTD.",address: "B-33, M.I.D.C. SHIROLI, KOLHAPUR-416122",                                                    contact: "9049879305", gstNo: "27AANCS0625R1ZM", email: "vishalpadalkar.sdf@gmail.com" },
-  { id: 572, name: "ASHTVINAYAK ENGINEERS",                     address: "KUSHIRE",                                                                                      contact: "-",          gstNo: "-",              email: "-" },
-  { id: 686, name: "SAMRUDDHI ENGINEERS",                       address: "Gat No. 522/1, Plot No. 2, Vijaynagar, Nerli, MIDC Gokul Shirgaon, Kolhapur- 416 234",        contact: "9890249086", gstNo: "27AKYPM5715A1ZY", email: "smruddhi.3@gmail.com" },
-  { id: 843, name: "EAGAR STAR",                                address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                                 contact: "-",          gstNo: "27AAJFE7714N1ZX", email: "-" },
-  { id: 848, name: "Sound Castings Pvt. Ltd. Unit-3 (IFDC)",    address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "9970678872", gstNo: "27AACCS5263N1ZW", email: "Shekhar.Khot@soundcastings.com" },
-  { id: 849, name: "QA SOUND CASTING PVT. LTD.",                address: "151/1, Kallapaanna Aavade Textile Park, Tardal, Hatkanangale, Dist. Kolhapur-416121.",        contact: "8805967627", gstNo: "27AACCS5263N1ZW", email: "paresh.bhagwat@soundcastings.com" },
-  { id: 850, name: "AATHARV ENTERPRISES",                       address: "G-95, SHIROLI MIDC, KOLHAPUR",                                                                 contact: "8180909007", gstNo: "27EMHPP4751A1Z2",  email: "-" },
-  { id: 859, name: "METACAST AUTO PRIVATE LIMITED",             address: "PLOT NO.T-26 KAGAL - HATKANANGALE FIVE STAR INDUSTRIAL AREA KOLHAPUR",                        contact: "-",          gstNo: "27AAQCM8947H1ZO", email: "-" },
-];
 
 export default function PartyRegistrationPage() {
   const [regNo,           setRegNo]           = useState("");
@@ -40,26 +31,61 @@ export default function PartyRegistrationPage() {
   const [decisionRule,    setDecisionRule]    = useState("Yes");
   const [billingFirm,     setBillingFirm]     = useState("Vikramaditya Calibration");
 
-  const [parties,     setParties]     = useState<Party[]>(INITIAL_PARTIES);
+  const [parties,     setParties]     = useState<Party[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId,   setEditingId]   = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
   const rowsPerPage = 10;
+
+  const fetchParties = async () => {
+    setLoading(true); setError(null);
+    const { data, error: err } = await supabase.from("parties").select("*").order("id", { ascending: true });
+    if (err) { setError(err.message); }
+    else {
+      setParties((data ?? []).map((r: any) => ({
+        id: r.id, name: r.name, address: r.address, contact: r.contact,
+        gstNo: r.gst_no, email: r.email, gstType: r.gst_type,
+        otherAccess: r.other_access, billingRateType: r.billing_rate_type,
+        discountRate: r.discount_rate, collabMethod: r.collab_method,
+        reportingMethod: r.reporting_method, collationMethod: r.collation_method,
+        dispatchMethod: r.dispatch_method, compliance: r.compliance,
+        decisionRule: r.decision_rule, billingFirm: r.billing_firm,
+      })));
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchParties(); }, []);
 
   const resetForm = () => {
     setRegNo(""); setCompanyName(""); setContactPerson(""); setAddress("");
     setEmail(""); setContact(""); setGstNo(""); setEditingId(null);
+    setGstType("CGST/SGST"); setOtherAccess("No"); setBillingRateType("Fixed Discount %");
+    setDiscountRate(""); setCollabMethod("Lab Method"); setReportingMethod("Lab Format");
+    setCollationMethod("By Hand"); setDispatchMethod("By Hand"); setCompliance("Required");
+    setDecisionRule("Yes"); setBillingFirm("Vikramaditya Calibration");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!companyName.trim()) return;
+    const payload = {
+      name: companyName, address, contact, gst_no: gstNo, email,
+      gst_type: gstType, other_access: otherAccess, billing_rate_type: billingRateType,
+      discount_rate: discountRate, collab_method: collabMethod,
+      reporting_method: reportingMethod, collation_method: collationMethod,
+      dispatch_method: dispatchMethod, compliance, decision_rule: decisionRule,
+      billing_firm: billingFirm,
+    };
     if (editingId !== null) {
-      setParties(parties.map(p => p.id === editingId ? { ...p, name: companyName, address, contact, gstNo, email } : p));
+      const { error: err } = await supabase.from("parties").update(payload).eq("id", editingId);
+      if (err) { setError(err.message); return; }
     } else {
-      const newId = Math.max(...parties.map(p => p.id)) + 1;
-      setParties([...parties, { id: newId, name: companyName, address, contact, gstNo, email }]);
+      const { error: err } = await supabase.from("parties").insert(payload);
+      if (err) { setError(err.message); return; }
     }
-    resetForm();
+    resetForm(); fetchParties();
   };
 
   const handleSelect = (p: Party) => {
@@ -67,31 +93,33 @@ export default function PartyRegistrationPage() {
     setContact(p.contact === "-" ? "" : p.contact);
     setGstNo(p.gstNo === "-" ? "" : p.gstNo);
     setEmail(p.email === "-" ? "" : p.email);
+    setGstType(p.gstType ?? "CGST/SGST"); setOtherAccess(p.otherAccess ?? "No");
+    setBillingRateType(p.billingRateType ?? "Fixed Discount %"); setDiscountRate(p.discountRate ?? "");
+    setCollabMethod(p.collabMethod ?? "Lab Method"); setReportingMethod(p.reportingMethod ?? "Lab Format");
+    setCollationMethod(p.collationMethod ?? "By Hand"); setDispatchMethod(p.dispatchMethod ?? "By Hand");
+    setCompliance(p.compliance ?? "Required"); setDecisionRule(p.decisionRule ?? "Yes");
+    setBillingFirm(p.billingFirm ?? "Vikramaditya Calibration");
   };
 
-  const handleDelete = () => {
-    if (editingId !== null) setParties(parties.filter(p => p.id !== editingId));
-    resetForm();
+  const handleDelete = async () => {
+    if (editingId !== null) {
+      const { error: err } = await supabase.from("parties").delete().eq("id", editingId);
+      if (err) { setError(err.message); return; }
+    }
+    resetForm(); fetchParties();
   };
 
-  const filtered   = parties.filter(p => [p.name, p.address, p.gstNo, p.email].some(v => v.toLowerCase().includes(searchQuery.toLowerCase())));
+  const filtered   = parties.filter(p => [p.name, p.address, p.gstNo, p.email].some(v => (v ?? "").toLowerCase().includes(searchQuery.toLowerCase())));
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
   const paginated  = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
-  // ── Export config ──
   const PARTY_COLUMNS: ColumnDef[] = [
-    { key: "id",      label: "ID" },
-    { key: "name",    label: "Name" },
-    { key: "address", label: "Address" },
-    { key: "contact", label: "Contact" },
-    { key: "gstNo",   label: "GST No" },
-    { key: "email",   label: "Email" },
+    { key: "id", label: "ID" }, { key: "name", label: "Name" },
+    { key: "address", label: "Address" }, { key: "contact", label: "Contact" },
+    { key: "gstNo", label: "GST No" }, { key: "email", label: "Email" },
   ];
   const [visibleCols, setVisibleCols] = useState(PARTY_COLUMNS.map(c => c.key));
-  const exportData = filtered.map(p => ({
-    id: p.id, name: p.name, address: p.address,
-    contact: p.contact, gstNo: p.gstNo, email: p.email,
-  }));
+  const exportData = filtered.map(p => ({ id: p.id, name: p.name, address: p.address, contact: p.contact, gstNo: p.gstNo, email: p.email }));
 
   const fieldCls  = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
   const selectCls = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange appearance-none cursor-pointer";
@@ -109,31 +137,25 @@ export default function PartyRegistrationPage() {
     </div>
   );
 
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-6 h-6 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" /></div>;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="w-full flex flex-col gap-6"
-    >
-      {/* Page title */}
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="w-full flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold text-text-primary">Party Registration</h1>
         <p className="text-xs text-text-secondary mt-0.5">Manage client and party records</p>
       </div>
 
-      {/* Form card */}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5">{error}</div>}
+
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
             <UserPlus size={16} className="text-brand-orange" />
             {editingId !== null ? `Editing Party #${editingId}` : "New Party Entry"}
           </div>
-          {editingId !== null && (
-            <span className="text-xs bg-brand-orange-light text-brand-orange font-medium px-2 py-0.5 rounded-full">Editing</span>
-          )}
+          {editingId !== null && <span className="text-xs bg-brand-orange-light text-brand-orange font-medium px-2 py-0.5 rounded-full">Editing</span>}
         </div>
-
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label className={labelCls}>Reg. No</label><input value={regNo} onChange={e => setRegNo(e.target.value)} className={fieldCls} /></div>
           <div><label className={labelCls}>Company Name</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} className={fieldCls} /></div>
@@ -154,26 +176,14 @@ export default function PartyRegistrationPage() {
           <SelectField label="Decision Rule Discussed & Accepted" value={decisionRule} onChange={setDecisionRule} options={["Yes","No"]} />
           <SelectField label="Billing Firm" value={billingFirm} onChange={setBillingFirm} options={["Vikramaditya Calibration","Vikramaditya Enterprises"]} />
         </div>
-
         <div className="px-5 pb-5 pt-3 border-t border-border flex items-center gap-2">
-          <button onClick={handleSave} className="bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
-            Save
-          </button>
-          <button onClick={handleSave} disabled={editingId === null} className="border border-border text-text-primary text-xs font-medium px-4 py-2 rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-            Update
-          </button>
-          <button onClick={handleDelete} disabled={editingId === null} className="border border-red-200 text-red-600 text-xs font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-            Delete
-          </button>
-          {editingId !== null && (
-            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-2">
-              Cancel
-            </button>
-          )}
+          <button onClick={handleSave} className="bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">Save</button>
+          <button onClick={handleSave} disabled={editingId === null} className="border border-border text-text-primary text-xs font-medium px-4 py-2 rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Update</button>
+          <button onClick={handleDelete} disabled={editingId === null} className="border border-red-200 text-red-600 text-xs font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Delete</button>
+          {editingId !== null && <button onClick={resetForm} className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-2">Cancel</button>}
         </div>
       </div>
 
-      {/* Party table card */}
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -181,27 +191,13 @@ export default function PartyRegistrationPage() {
             <p className="text-xs text-text-secondary mt-0.5">{filtered.length} records</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 flex-wrap">
-              <ExportToolbar
-                data={exportData}
-                columns={PARTY_COLUMNS}
-                filename="party-registration"
-                visibleColumns={visibleCols}
-                onVisibilityChange={setVisibleCols}
-              />
-            </div>
+            <ExportToolbar data={exportData} columns={PARTY_COLUMNS} filename="party-registration" visibleColumns={visibleCols} onVisibilityChange={setVisibleCols} />
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="border border-border rounded-md text-xs pl-8 pr-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange w-40"
-                placeholder="Search..."
-              />
+              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="border border-border rounded-md text-xs pl-8 pr-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange w-40" placeholder="Search..." />
             </div>
           </div>
         </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[800px]">
             <thead className="bg-surface-muted border-b border-border">
@@ -209,64 +205,39 @@ export default function PartyRegistrationPage() {
                 {["ID","Name","Address","Contact","GST No","Email","Action"].map((h, i) => {
                   const colKey = ["id","name","address","contact","gstNo","email","action"][i];
                   if (colKey !== "action" && !visibleCols.includes(colKey)) return null;
-                  return (
-                    <th key={h} className={`px-4 py-2.5 text-xs font-medium text-text-secondary ${i < 6 ? "border-r border-border" : "text-center"}`}>
-                      {h !== "Action" ? <span className="flex items-center gap-1">{h} <span className="text-text-muted">↕</span></span> : h}
-                    </th>
-                  );
+                  return <th key={h} className={`px-4 py-2.5 text-xs font-medium text-text-secondary ${i < 6 ? "border-r border-border" : "text-center"}`}>{h !== "Action" ? <span className="flex items-center gap-1">{h} <span className="text-text-muted">↕</span></span> : h}</th>;
                 })}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {paginated.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-text-muted text-xs">No records found</td></tr>
-              ) : (
-                paginated.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    className={`hover:bg-surface-subtle transition-colors ${editingId === p.id ? "bg-brand-orange-light" : i % 2 === 0 ? "bg-white" : "bg-surface-subtle/50"}`}
-                  >
-                    <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.id}</td>
-                    <td className="px-4 py-2.5 font-medium text-text-primary border-r border-border">{p.name}</td>
-                    <td className="px-4 py-2.5 text-text-secondary border-r border-border max-w-xs truncate" title={p.address}>{p.address}</td>
-                    <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.contact}</td>
-                    <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.gstNo}</td>
-                    <td className="px-4 py-2.5 text-text-secondary border-r border-border max-w-[160px] truncate" title={p.email}>{p.email}</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <button onClick={() => handleSelect(p)} className="bg-brand-orange text-white text-xs font-medium px-3 py-1 rounded hover:bg-orange-700 transition-colors">
-                        Select
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ) : paginated.map((p, i) => (
+                <tr key={p.id} className={`hover:bg-surface-subtle transition-colors ${editingId === p.id ? "bg-brand-orange-light" : i % 2 === 0 ? "bg-white" : "bg-surface-subtle/50"}`}>
+                  {visibleCols.includes("id")      && <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.id}</td>}
+                  {visibleCols.includes("name")    && <td className="px-4 py-2.5 font-medium text-text-primary border-r border-border">{p.name}</td>}
+                  {visibleCols.includes("address") && <td className="px-4 py-2.5 text-text-secondary border-r border-border max-w-xs truncate" title={p.address}>{p.address}</td>}
+                  {visibleCols.includes("contact") && <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.contact}</td>}
+                  {visibleCols.includes("gstNo")   && <td className="px-4 py-2.5 font-mono text-text-secondary border-r border-border">{p.gstNo}</td>}
+                  {visibleCols.includes("email")   && <td className="px-4 py-2.5 text-text-secondary border-r border-border max-w-[160px] truncate" title={p.email}>{p.email}</td>}
+                  <td className="px-4 py-2.5 text-center">
+                    <button onClick={() => handleSelect(p)} className="bg-brand-orange text-white text-xs font-medium px-3 py-1 rounded hover:bg-orange-700 transition-colors">Select</button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
         <div className="px-5 py-3 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <span className="text-xs text-text-secondary">
-            Showing {filtered.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filtered.length)} of {filtered.length}
-          </span>
+          <span className="text-xs text-text-secondary">Showing {filtered.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filtered.length)} of {filtered.length}</span>
           <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="text-xs px-3 py-1 border border-border rounded text-text-secondary hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              Previous
-            </button>
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="text-xs px-3 py-1 border border-border rounded text-text-secondary hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Previous</button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
-              <button key={pg} onClick={() => setCurrentPage(pg)} className={`text-xs px-3 py-1 border rounded transition-colors ${currentPage === pg ? "bg-brand-orange text-white border-brand-orange" : "border-border text-text-secondary hover:bg-surface-muted"}`}>
-                {pg}
-              </button>
+              <button key={pg} onClick={() => setCurrentPage(pg)} className={`text-xs px-3 py-1 border rounded transition-colors ${currentPage === pg ? "bg-brand-orange text-white border-brand-orange" : "border-border text-text-secondary hover:bg-surface-muted"}`}>{pg}</button>
             ))}
             {totalPages > 5 && <span className="text-xs text-text-muted px-1">…</span>}
-            {totalPages > 5 && (
-              <button onClick={() => setCurrentPage(totalPages)} className={`text-xs px-3 py-1 border rounded transition-colors ${currentPage === totalPages ? "bg-brand-orange text-white border-brand-orange" : "border-border text-text-secondary hover:bg-surface-muted"}`}>
-                {totalPages}
-              </button>
-            )}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="text-xs px-3 py-1 border border-border rounded text-text-secondary hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              Next
-            </button>
+            {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className={`text-xs px-3 py-1 border rounded transition-colors ${currentPage === totalPages ? "bg-brand-orange text-white border-brand-orange" : "border-border text-text-secondary hover:bg-surface-muted"}`}>{totalPages}</button>}
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="text-xs px-3 py-1 border border-border rounded text-text-secondary hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
           </div>
         </div>
       </div>

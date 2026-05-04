@@ -3,12 +3,7 @@ import { useState, useMemo } from "react";
 import { Printer, FileDown, Plus, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-
-const MOCK_CLIENTS: Record<string, { name: string; address: string }> = {
-  "T-1000": { name: "CYBERDYNE SYSTEMS", address: "Tech Tower, Sector 7, Neo-Tokyo, Japan" },
-  "W-40K":  { name: "ADEPTUS MECHANICUS", address: "Iron Temple, Forge World Mars, Sol System" },
-  "ST-01":  { name: "STARFLEET COMMAND",  address: "Presidio, San Francisco, United Earth" },
-};
+import { supabase } from "../lib/supabase";
 
 interface POItem {
   id: string; poCode: string; particular: string; category: string; size: string;
@@ -25,10 +20,20 @@ export default function PurchaseOrderPage() {
     { id: "1", poCode: "", particular: "", category: "", size: "", qty: 1, repair: 0, calibration: 0, discount: 0 },
   ]);
 
-  const fetchClientDetails = () => {
-    const data = MOCK_CLIENTS[clientIdSearch.toUpperCase()];
-    if (data) { setCustomerName(data.name); setAddress(data.address); }
-    else alert("Client not found in registry.");
+  const fetchClientDetails = async () => {
+    const id = parseInt(clientIdSearch);
+    if (isNaN(id)) { alert("Please enter a valid numeric ID."); return; }
+    const { data, error } = await supabase
+      .from("parties")
+      .select("name, address")
+      .eq("id", id)
+      .single();
+    if (error || !data) {
+      alert("Client not found in registry.");
+    } else {
+      setCustomerName(data.name ?? "");
+      setAddress(data.address ?? "");
+    }
   };
 
   const addItem = () =>

@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
+import { supabase } from "../../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,19 +33,6 @@ const GAUGE_TYPES = [
 
 const ENV_DEFAULT = "20°C ± 2°C & Humidity 40 to 60 % Rh.";
 
-const INITIAL_GAUGES: Gauge[] = [
-  { id: 2,  gaugeName: "Internal Micrometer",       isNo: "IS:2566",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F/4S-P-26", certificate: "VMC-IMM",  calibration: "VMC/P/26", gaugeType: "External Micrometer",    condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-IMM",  rawDatasheetFrmt: "VMC/F/4S-P-26" },
-  { id: 3,  gaugeName: "Angle Plate",               isNo: "IS: 2534 OI 1971", nonNablNo: "VMC/I/55, Rev.-00, Rev. Date: --", nablNo: "VMC/I/55, Rev.-00, Rev. Date: --", datasheet: "VMC/I-45/P-xx", certificate: "VMC-AP",   calibration: "VMC/P/XXX", gaugeType: "V Block",               condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-AP",   rawDatasheetFrmt: "VMC/I-45/P-xx" },
-  { id: 4,  gaugeName: "Ring Gauge",                isNo: "IS-3485",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F/45-P-05", certificate: "VMC/MRG",  calibration: "VMC/P/05",  gaugeType: "Master Ring",           condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC/MRG",  rawDatasheetFrmt: "VMC/F/45-P-05" },
-  { id: 5,  gaugeName: "Digital Dial Gauge.",       isNo: "IS-2092",          nonNablNo: "VMC/I/55, Rev.-00, Rev. Date: --", nablNo: "VMC/I/55, Rev.-00, Rev. Date: --", datasheet: "VMC/I/45/P-30", certificate: "VMC/DDG",  calibration: "VMC/P/30",  gaugeType: "Digital Dial Gauge",    condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC/DDG",  rawDatasheetFrmt: "VMC/I/45/P-30" },
-  { id: 6,  gaugeName: "Depth Micrometer",          isNo: "BS-6468",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F/45/P-24", certificate: "VMC/DM",   calibration: "VMC/P/24",  gaugeType: "External Micrometer",   condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC/DM",   rawDatasheetFrmt: "VMC/F/45/P-24" },
-  { id: 7,  gaugeName: "Plain Taper Plug Gauge",    isNo: "IS-9529",          nonNablNo: "VMC/I/55, Rev.-00, Rev. Date: --", nablNo: "VMC/I/55, Rev.-00, Rev. Date: --", datasheet: "VMC/I/45/P-15", certificate: "VMC-PTPG", calibration: "VMC/P/15",  gaugeType: "Taper Plug Gauge",      condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-PTPG", rawDatasheetFrmt: "VMC/I/45/P-15" },
-  { id: 8,  gaugeName: "Plain Taper Ring Gauge.",   isNo: "IS 9529",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F-45/P-18", certificate: "VMC-PTRG", calibration: "VMC/P/18",  gaugeType: "Taper Ring Gauge",      condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-PTRG", rawDatasheetFrmt: "VMC/F-45/P-18" },
-  { id: 9,  gaugeName: "Comparator Stand.",         isNo: "IS-7599 (PART I, II)", nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F-45/P-23", certificate: "VMC-CS",   calibration: "VMC/P/23",  gaugeType: "Comparator Stand",      condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-CS",   rawDatasheetFrmt: "VMC/F-45/P-23" },
-  { id: 10, gaugeName: "Plain Plug Gauge.",         isNo: "IS 3455",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F-45/P-01", certificate: "VMC-PG",   calibration: "VMC/P/01",  gaugeType: "OD Limit Gauge",        condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-PG",   rawDatasheetFrmt: "VMC/F-45/P-01" },
-  { id: 11, gaugeName: "Paddle Plug Gauge.",        isNo: "IS 3455",          nonNablNo: "VMC/F/55, Rev.-00, Rev. Date: --", nablNo: "VMC/F/55, Rev.-00, Rev. Date: --", datasheet: "VMC/F-45/P-01", certificate: "VMC-PPG",  calibration: "VMC/P/01",  gaugeType: "OD Limit Gauge",        condition: ENV_DEFAULT, calibrationMethod: "Tolerance Method", envConditions: ENV_DEFAULT, certCode: "VMC-PPG",  rawDatasheetFrmt: "VMC/F-45/P-01" },
-];
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const COLUMNS: ColumnDef[] = [
@@ -61,23 +49,59 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 export default function GaugeInfoPage() {
-  const [gauges,     setGauges]     = useState<Gauge[]>(INITIAL_GAUGES);
-  const [editingId,  setEditingId]  = useState<number | null>(null);
-  const [searchQuery,setSearchQuery]= useState("");
-  const [currentPage,setCurrentPage]= useState(1);
-  const [visibleCols,setVisibleCols]= useState(COLUMNS.map(c => c.key));
+  const [gauges,      setGauges]      = useState<Gauge[]>([]);
+  const [editingId,   setEditingId]   = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCols, setVisibleCols] = useState(COLUMNS.map(c => c.key));
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
   const rowsPerPage = 10;
 
   // Form state
-  const [gaugeName,       setGaugeName]       = useState("");
-  const [isNo,            setIsNo]            = useState("");
-  const [nonNablNo,       setNonNablNo]       = useState("");
-  const [nablNo,          setNablNo]          = useState("");
-  const [rawDatasheetFrmt,setRawDatasheetFrmt]= useState("");
-  const [certCode,        setCertCode]        = useState("");
-  const [calibrationMethod,setCalibrationMethod]= useState("");
-  const [gaugeType,       setGaugeType]       = useState("OD Limit Gauge");
-  const [envConditions,   setEnvConditions]   = useState(ENV_DEFAULT);
+  const [gaugeName,          setGaugeName]          = useState("");
+  const [isNo,               setIsNo]               = useState("");
+  const [nonNablNo,          setNonNablNo]          = useState("");
+  const [nablNo,             setNablNo]             = useState("");
+  const [rawDatasheetFrmt,   setRawDatasheetFrmt]   = useState("");
+  const [certCode,           setCertCode]           = useState("");
+  const [calibrationMethod,  setCalibrationMethod]  = useState("");
+  const [gaugeType,          setGaugeType]          = useState("OD Limit Gauge");
+  const [envConditions,      setEnvConditions]      = useState(ENV_DEFAULT);
+
+  const fetchGauges = async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("gauges")
+      .select("*")
+      .order("id", { ascending: true });
+    if (err) {
+      setError(err.message);
+    } else {
+      setGauges(
+        (data ?? []).map((r: any) => ({
+          id:               r.id,
+          gaugeName:        r.gauge_name,
+          isNo:             r.is_no,
+          nonNablNo:        r.non_nabl_no,
+          nablNo:           r.nabl_no,
+          rawDatasheetFrmt: r.raw_datasheet_frmt,
+          certCode:         r.cert_code,
+          calibrationMethod:r.calibration_method,
+          gaugeType:        r.gauge_type,
+          envConditions:    r.env_conditions,
+          datasheet:        r.datasheet,
+          certificate:      r.certificate,
+          calibration:      r.calibration,
+          condition:        r.env_conditions,
+        }))
+      );
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchGauges(); }, []);
 
   const resetForm = () => {
     setGaugeName(""); setIsNo(""); setNonNablNo(""); setNablNo("");
@@ -86,22 +110,31 @@ export default function GaugeInfoPage() {
     setEditingId(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!gaugeName.trim()) return;
-    const entry: Gauge = {
-      id: editingId ?? Math.max(...gauges.map(g => g.id)) + 1,
-      gaugeName, isNo, nonNablNo, nablNo,
-      datasheet: rawDatasheetFrmt, certificate: certCode,
-      calibration: `VMC/P/${Math.floor(Math.random() * 99) + 1}`,
-      gaugeType, condition: envConditions,
-      calibrationMethod, envConditions, certCode, rawDatasheetFrmt,
+    const payload = {
+      gauge_name:         gaugeName,
+      is_no:              isNo,
+      non_nabl_no:        nonNablNo,
+      nabl_no:            nablNo,
+      raw_datasheet_frmt: rawDatasheetFrmt,
+      cert_code:          certCode,
+      calibration_method: calibrationMethod,
+      gauge_type:         gaugeType,
+      env_conditions:     envConditions,
+      datasheet:          rawDatasheetFrmt,
+      certificate:        certCode,
+      calibration:        calibrationMethod,
     };
     if (editingId !== null) {
-      setGauges(gauges.map(g => g.id === editingId ? entry : g));
+      const { error: err } = await supabase.from("gauges").update(payload).eq("id", editingId);
+      if (err) { setError(err.message); return; }
     } else {
-      setGauges([...gauges, entry]);
+      const { error: err } = await supabase.from("gauges").insert(payload);
+      if (err) { setError(err.message); return; }
     }
     resetForm();
+    fetchGauges();
   };
 
   const handleSelect = (g: Gauge) => {
@@ -113,14 +146,18 @@ export default function GaugeInfoPage() {
     setEnvConditions(g.envConditions);
   };
 
-  const handleDelete = () => {
-    if (editingId !== null) setGauges(gauges.filter(g => g.id !== editingId));
+  const handleDelete = async () => {
+    if (editingId !== null) {
+      const { error: err } = await supabase.from("gauges").delete().eq("id", editingId);
+      if (err) { setError(err.message); return; }
+    }
     resetForm();
+    fetchGauges();
   };
 
   const filtered   = gauges.filter(g =>
     [g.gaugeName, g.isNo, g.gaugeType, g.certificate, g.calibration].some(v =>
-      v.toLowerCase().includes(searchQuery.toLowerCase())
+      (v ?? "").toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
@@ -137,6 +174,12 @@ export default function GaugeInfoPage() {
   const labelCls  = "block text-xs font-medium text-text-secondary mb-1";
   const selectCls = `${fieldCls} appearance-none cursor-pointer`;
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-6 h-6 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
       className="w-full flex flex-col gap-6">
@@ -146,6 +189,8 @@ export default function GaugeInfoPage() {
         <h1 className="text-lg font-semibold text-text-primary">Gauge Info Registration</h1>
         <p className="text-xs text-text-secondary mt-0.5">Register and manage gauge master records</p>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5 mb-4">{error}</div>}
 
       {/* ── Form card ── */}
       <div className="bg-white rounded-xl border border-border shadow-sm">

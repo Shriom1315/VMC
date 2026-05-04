@@ -1,10 +1,11 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { useAuth, can } from "../../context/AuthContext";
 import CalibDatasheet from "./calib/CalibDatasheet";
 import CalibCertificate from "./calib/CalibCertificate";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
+import { supabase } from "../../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,97 +65,51 @@ export interface CalibJob {
   status: "pending" | "generated";
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── DB row → CalibJob mapper ─────────────────────────────────────────────────
 
-const MOCK_JOBS: CalibJob[] = [
-  {
-    labId: "26041", name: "Plain Plug Gauge.", identificationNo: "Vmc/19",
-    specification: "10 ( 0.1 / -0.1 ) mm", manuSr: "455366", process: "Calibration",
-    dcNo: "Xxxx", dcDate: "2025-12-28", calibDate: "2025-12-30", nextCalibDate: "2025-12-30",
-    certNo: "26/05/1", certIssueDate: "2025-12-30", ulrNo: "", srNo: "75", make: "", lc: "LC",
-    refIsStd: "", calibMethodUse: "Tolerance Method", toleranceMethod: "Tolerance Method",
-    standardEquipment: ["COMPARATOR STAND||600X90X95", "DIGITAL PLUNGER DIAL||0-12.7"],
-    clientName: "VIKRAMADITYA METROLOGY CENTER LLP. PLOT NO.A-15/1,NEAR ULTRATECH CEMENT MIDC SHIROLI(P),TAL HATKANAGALE,DIST:KOLHAPUR",
-    clientAddress: "PLOT NO.A-15/1, NEAR ULTRATECH CEMENT MIDC SHIROLI(P), TAL HATKANAGALE, DIST:KOLHAPUR",
-    conditionOfGauge: "Visually Ok", dateReceived: "2025-12-30",
-    traceability: "", referenceStd: "",
-    calibTemp: "20°C ± 2°C & Humidity 40 to 60 % Rh.",
-    uncertainty: "± 1 μm.", calibLocation: "Permanent Facility",
-    observation: "-", conformityStatement: "-", remark: "* Due date given as per customer request..",
-    calibratedBy: "Rohit Patil", approvedBy: "Kiran Patil",
-    parameters: [
-      { parameter: "Go",    basicSize: 25,      specLimitMax: 24.9830, specLimitMin: 24.9805, wearLimit: 24.9780 },
-      { parameter: "No Go", basicSize: 25.0200, specLimitMax: 25.0230, specLimitMin: 25.0205, wearLimit: null },
-    ],
-    results: [
-      { parameter: "Go",    row: "A", x1: 9.9300,  x2: 9.9300,  x3: 9.9301,  avg: 9.930  },
-      { parameter: "Go",    row: "B", x1: 9.9310,  x2: 9.9310,  x3: 9.9311,  avg: 9.931  },
-      { parameter: "No Go", row: "A", x1: 10.1020, x2: 10.1020, x3: 10.1021, avg: 10.102 },
-      { parameter: "No Go", row: "B", x1: 10.1030, x2: 10.1030, x3: 10.1031, avg: 10.103 },
-    ],
-    typeAReadings: { x1: 10.103, x2: 10.103, x3: 10.104, avg: 10.104, stdDev: 10.103 },
-    stdDevNote: "Std. dev. readings At (No Go –B)",
-    status: "pending",
-  },
-  {
-    labId: "26052", name: "Plain Plug Gauge.", identificationNo: "VMC/PG/19",
-    specification: "Range -,-,-", manuSr: "87987895", process: "Calibration",
-    dcNo: "Xxxx", dcDate: "2025-12-28", calibDate: "2025-12-30", nextCalibDate: "2025-12-30",
-    certNo: "26/05/2", certIssueDate: "2025-12-30", ulrNo: "", srNo: "80", make: "SHRINIWAS", lc: "",
-    refIsStd: "", calibMethodUse: "Tolerance Method", toleranceMethod: "Tolerance Method",
-    standardEquipment: ["COMPARATOR STAND||600X90X95", "DIGITAL PLUNGER DIAL||0-12.7"],
-    clientName: "VIKRAMADITYA METROLOGY CENTER LLP.",
-    clientAddress: "PLOT NO.A-15/1, NEAR ULTRATECH CEMENT MIDC SHIROLI(P), TAL HATKANAGALE, DIST:KOLHAPUR",
-    conditionOfGauge: "Visually Ok", dateReceived: "2025-12-30",
-    traceability: "", referenceStd: "",
-    calibTemp: "20°C ± 2°C & Humidity 40 to 60 % Rh.",
-    uncertainty: "± 1 μm.", calibLocation: "Permanent Facility",
-    observation: "-", conformityStatement: "-", remark: "* Due date given as per customer request..",
-    calibratedBy: "Rohit Patil", approvedBy: "Kiran Patil",
-    parameters: [
-      { parameter: "Go",    basicSize: 25,      specLimitMax: 24.9830, specLimitMin: 24.9805, wearLimit: 24.9780 },
-      { parameter: "No Go", basicSize: 25.0200, specLimitMax: 25.0230, specLimitMin: 25.0205, wearLimit: null },
-    ],
-    results: [
-      { parameter: "Go",    row: "A", x1: 9.9300,  x2: 9.9300,  x3: 9.9301,  avg: 9.930  },
-      { parameter: "Go",    row: "B", x1: 9.9310,  x2: 9.9310,  x3: 9.9311,  avg: 9.931  },
-      { parameter: "No Go", row: "A", x1: 10.1020, x2: 10.1020, x3: 10.1021, avg: 10.102 },
-      { parameter: "No Go", row: "B", x1: 10.1030, x2: 10.1030, x3: 10.1031, avg: 10.103 },
-    ],
-    typeAReadings: { x1: 10.103, x2: 10.103, x3: 10.104, avg: 10.104, stdDev: 10.103 },
-    stdDevNote: "Std. dev. readings At (No Go –B)",
-    status: "pending",
-  },
-  {
-    labId: "26053", name: "(ILC) Lever Dial..", identificationNo: "",
-    specification: "Range -,-,-", manuSr: "", process: "Calibration",
-    dcNo: "Xxxx", dcDate: "2025-12-28", calibDate: "2025-12-30", nextCalibDate: "2025-12-30",
-    certNo: "26/05/3", certIssueDate: "2025-12-30", ulrNo: "", srNo: "", make: "", lc: "",
-    refIsStd: "", calibMethodUse: "Tolerance Method", toleranceMethod: "Tolerance Method",
-    standardEquipment: ["COMPARATOR STAND||600X90X95"],
-    clientName: "VIKRAMADITYA METROLOGY CENTER LLP.",
-    clientAddress: "PLOT NO.A-15/1, NEAR ULTRATECH CEMENT MIDC SHIROLI(P), TAL HATKANAGALE, DIST:KOLHAPUR",
-    conditionOfGauge: "Visually Ok", dateReceived: "2025-12-30",
-    traceability: "", referenceStd: "",
-    calibTemp: "20°C ± 2°C & Humidity 40 to 60 % Rh.",
-    uncertainty: "± 1 μm.", calibLocation: "Permanent Facility",
-    observation: "-", conformityStatement: "-", remark: "* Due date given as per customer request..",
-    calibratedBy: "Rohit Patil", approvedBy: "Kiran Patil",
-    parameters: [
-      { parameter: "Go",    basicSize: 25,      specLimitMax: 24.9830, specLimitMin: 24.9805, wearLimit: 24.9780 },
-      { parameter: "No Go", basicSize: 25.0200, specLimitMax: 25.0230, specLimitMin: 25.0205, wearLimit: null },
-    ],
-    results: [
-      { parameter: "Go",    row: "A", x1: 9.9300,  x2: 9.9300,  x3: 9.9301,  avg: 9.930  },
-      { parameter: "Go",    row: "B", x1: 9.9310,  x2: 9.9310,  x3: 9.9311,  avg: 9.931  },
-      { parameter: "No Go", row: "A", x1: 10.1020, x2: 10.1020, x3: 10.1021, avg: 10.102 },
-      { parameter: "No Go", row: "B", x1: 10.1030, x2: 10.1030, x3: 10.1031, avg: 10.103 },
-    ],
-    typeAReadings: { x1: 10.103, x2: 10.103, x3: 10.104, avg: 10.104, stdDev: 10.103 },
-    stdDevNote: "Std. dev. readings At (No Go –B)",
-    status: "generated",
-  },
-];
+function mapRow(r: any): CalibJob {
+  return {
+    labId:               String(r.lab_id ?? r.id),
+    name:                r.name ?? "",
+    identificationNo:    r.identification_no ?? "",
+    specification:       r.specification ?? "",
+    manuSr:              r.manu_sr ?? "",
+    process:             r.process ?? "",
+    dcNo:                r.dc_no ?? "",
+    dcDate:              r.dc_date ?? "",
+    calibDate:           r.calib_date ?? "",
+    nextCalibDate:       r.next_calib_date ?? "",
+    certNo:              r.cert_no ?? "",
+    certIssueDate:       r.cert_issue_date ?? "",
+    ulrNo:               r.ulr_no ?? "",
+    srNo:                r.sr_no ?? "",
+    make:                r.make ?? "",
+    lc:                  r.lc ?? "",
+    refIsStd:            r.ref_is_std ?? "",
+    calibMethodUse:      r.calib_method_use ?? "",
+    toleranceMethod:     r.calib_method_use ?? "",
+    standardEquipment:   Array.isArray(r.standard_equipment) ? r.standard_equipment : [],
+    clientName:          r.client_name ?? "",
+    clientAddress:       r.client_address ?? "",
+    conditionOfGauge:    r.condition_of_gauge ?? "",
+    dateReceived:        r.date_received ?? "",
+    traceability:        "",
+    referenceStd:        "",
+    calibTemp:           r.calib_temp ?? "",
+    uncertainty:         r.uncertainty ?? "",
+    calibLocation:       r.calib_location ?? "",
+    observation:         "-",
+    conformityStatement: "-",
+    remark:              r.remark ?? "",
+    calibratedBy:        r.calibrated_by ?? "",
+    approvedBy:          r.approved_by ?? "",
+    parameters:          [],
+    results:             [],
+    typeAReadings:       { x1: 0, x2: 0, x3: 0, avg: 0, stdDev: 0 },
+    stdDevNote:          "",
+    status:              r.status ?? "pending",
+  };
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -173,12 +128,36 @@ export default function CalibrationStatusPage() {
   const [pendingResults, setPendingResults] = useState<CalibJob[] | null>(null);
   const [genResults,     setGenResults]     = useState<CalibJob[] | null>(null);
   const [search,         setSearch]         = useState("");
+  const [error,          setError]          = useState<string | null>(null);
 
   const [printJob,  setPrintJob]  = useState<CalibJob | null>(null);
   const [printMode, setPrintMode] = useState<PrintMode>("print");
 
-  const handleViewPending   = () => setPendingResults(MOCK_JOBS.filter(j => j.status === "pending"));
-  const handleViewGenerated = () => setGenResults(MOCK_JOBS.filter(j => j.status === "generated"));
+  const handleViewPending = async () => {
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("calib_jobs")
+      .select("*")
+      .eq("status", "pending")
+      .gte("calib_date", pendingFrom)
+      .lte("calib_date", pendingTo)
+      .order("lab_id", { ascending: true });
+    if (err) { setError(err.message); return; }
+    setPendingResults((data ?? []).map(mapRow));
+  };
+
+  const handleViewGenerated = async () => {
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("calib_jobs")
+      .select("*")
+      .eq("status", "generated")
+      .gte("calib_date", genFrom)
+      .lte("calib_date", genTo)
+      .order("lab_id", { ascending: true });
+    if (err) { setError(err.message); return; }
+    setGenResults((data ?? []).map(mapRow));
+  };
 
   const allResults = [
     ...(pendingResults ?? []),
@@ -252,6 +231,8 @@ export default function CalibrationStatusPage() {
         <h1 className="text-lg font-semibold text-text-primary">View Certificate Details</h1>
         <p className="text-xs text-text-secondary mt-0.5">Search pending and generated calibration certificates by date range</p>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5 mb-4">{error}</div>}
 
       {/* Filter panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

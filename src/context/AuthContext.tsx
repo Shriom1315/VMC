@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,55 +16,70 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, role: Role) => Promise<void>;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
-
-// ─── Mock users ───────────────────────────────────────────────────────────────
-
-const MOCK_USERS: Record<string, AuthUser> = {
-  "admin@vikramaditya.com": {
-    id: "u-001", name: "Kiran Patil",   email: "admin@vikramaditya.com",   role: "admin",   avatar: "KP",
-  },
-  "manager@vikramaditya.com": {
-    id: "u-002", name: "Rahul Desai",   email: "manager@vikramaditya.com", role: "manager", avatar: "RD",
-  },
-  "staff@vikramaditya.com": {
-    id: "u-003", name: "Priya Jadhav",  email: "staff@vikramaditya.com",   role: "staff",   avatar: "PJ",
-  },
-};
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const stored = sessionStorage.getItem("vmc_user");
-      return stored ? (JSON.parse(stored) as AuthUser) : null;
-    } catch { return null; }
-  });
+  const [user, setUser]       = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = async (email: string, _password: string, role: Role) => {
-    const found = MOCK_USERS[email.toLowerCase()];
-    if (!found) throw new Error("User not found. Use one of the demo accounts.");
-    const loggedIn: AuthUser = { ...found, role };
-    setUser(loggedIn);
-    sessionStorage.setItem("vmc_user", JSON.stringify(loggedIn));
+  // On mount — restore session from Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(buildUser(session.user));
+      }
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? buildUser(session.user) : null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    if (data.user) setUser(buildUser(data.user));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    sessionStorage.removeItem("vmc_user");
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
+// ─── Build AuthUser from Supabase user ────────────────────────────────────────
+
+function buildUser(supaUser: any): AuthUser {
+  const meta = supaUser.user_metadata ?? {};
+  const name  = meta.name  ?? supaUser.email?.split("@")[0] ?? "User";
+  const role  = (meta.role as Role) ?? "staff";
+  const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+  return {
+    id:     supaUser.id,
+    name,
+    email:  supaUser.email ?? "",
+    role,
+    avatar: initials,
+  };
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
@@ -72,82 +88,45 @@ export function useAuth(): AuthContextValue {
 }
 
 // ─── Permission table ─────────────────────────────────────────────────────────
-//
-//  Based on real calibration lab role analysis:
-//  - Admin    : Lab owner / director — full access including financials & system config
-//  - Manager  : Lab manager / senior tech — operations, approvals, billing; no system config
-//  - Staff    : Calibration technician — hands-on work only; no billing, no rates, no reports
-//
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const ROLE_PERMISSIONS = {
-  // ── Basic Registration ──────────────────────────────────────────────────────
   "party:read":           ["admin", "manager", "staff"]  as Role[],
   "party:write":          ["admin", "manager"]           as Role[],
-
   "gauge:read":           ["admin", "manager", "staff"]  as Role[],
   "gauge:write":          ["admin", "manager"]           as Role[],
-
   "equipment:read":       ["admin", "manager", "staff"]  as Role[],
   "equipment:write":      ["admin", "manager"]           as Role[],
-
-  // Uncertainty: staff can READ (needs values for certificates), cannot write
   "uncertainty:read":     ["admin", "manager", "staff"]  as Role[],
   "uncertainty:write":    ["admin", "manager"]           as Role[],
-
-  // Scope: staff has no access (accreditation scope is management-level)
   "scope:read":           ["admin", "manager"]           as Role[],
   "scope:write":          ["admin"]                      as Role[],
-
-  // Rates: commercially sensitive — staff must not see what clients are charged
   "rate:read":            ["admin", "manager"]           as Role[],
   "rate:write":           ["admin", "manager"]           as Role[],
-
-  // Firm: legal/financial identity of the lab — owner only
   "firm:read":            ["admin"]                      as Role[],
   "firm:write":           ["admin"]                      as Role[],
-
-  // ── Daily Transactions ──────────────────────────────────────────────────────
-  // Quotation: staff cannot see (quotation shows rates/prices)
   "quotation:read":       ["admin", "manager"]           as Role[],
   "quotation:write":      ["admin", "manager"]           as Role[],
   "quotation:approve":    ["admin", "manager"]           as Role[],
-
-  // PO: staff read-only (need to know which jobs are authorized)
   "po:read":              ["admin", "manager", "staff"]  as Role[],
   "po:write":             ["admin", "manager"]           as Role[],
   "po:approve":           ["admin", "manager"]           as Role[],
-
-  // Material Inward: technician's entry point — full access
   "inward:read":          ["admin", "manager", "staff"]  as Role[],
   "inward:write":         ["admin", "manager", "staff"]  as Role[],
-
-  // Calibration Status: technician's primary work page — full access
   "calib:read":           ["admin", "manager", "staff"]  as Role[],
   "calib:write":          ["admin", "manager", "staff"]  as Role[],
-
-  // Dispatch: staff can CREATE (pack & hand over), not edit/delete past records
   "dispatch:read":        ["admin", "manager", "staff"]  as Role[],
   "dispatch:create":      ["admin", "manager", "staff"]  as Role[],
-  "dispatch:write":       ["admin", "manager"]           as Role[], // edit/delete
-
-  // Invoice & Receipt: billing — no staff access
+  "dispatch:write":       ["admin", "manager"]           as Role[],
   "invoice:read":         ["admin", "manager"]           as Role[],
   "invoice:write":        ["admin", "manager"]           as Role[],
   "receipt:read":         ["admin", "manager"]           as Role[],
   "receipt:write":        ["admin", "manager"]           as Role[],
-
-  // ── Reports ─────────────────────────────────────────────────────────────────
   "reports:quotations":   ["admin", "manager"]           as Role[],
   "reports:pos":          ["admin", "manager"]           as Role[],
-  // Certificate history: staff may need to reprint a certificate
   "reports:certificates": ["admin", "manager", "staff"]  as Role[],
   "reports:outstanding":  ["admin", "manager"]           as Role[],
   "reports:ledger":       ["admin", "manager"]           as Role[],
-  // GST report: owner-level financial — admin only
   "reports:gst":          ["admin"]                      as Role[],
-
-  // ── System ──────────────────────────────────────────────────────────────────
   "users:manage":         ["admin"]                      as Role[],
 } as const;
 

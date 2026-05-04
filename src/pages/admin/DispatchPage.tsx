@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Truck } from "lucide-react";
 import { useAuth, can } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabase";
 
 interface DispatchEntry {
   id: string;
@@ -16,11 +17,6 @@ interface DispatchEntry {
   status: "pending" | "dispatched" | "delivered";
 }
 
-const MOCK_DISPATCHES: DispatchEntry[] = [
-  { id: "DC-001", jobId: "JOB-003", party: "Starfleet Command",  instruments: "Dial Indicator (DI-1102)", dcNo: "DC/2026/001", dispatchDate: "2026-05-02", courier: "By Hand",  trackingNo: "-",          receivedBy: "Geordi La Forge", status: "delivered" },
-  { id: "DC-002", jobId: "JOB-005", party: "Cyberdyne Systems",  instruments: "Pressure Gauge (PG-3301)", dcNo: "DC/2026/002", dispatchDate: "2026-05-03", courier: "DTDC",     trackingNo: "DTDC123456", receivedBy: "",               status: "dispatched" },
-];
-
 const STATUS_COLOR = {
   pending:    "bg-amber-100 text-amber-700",
   dispatched: "bg-blue-100 text-blue-700",
@@ -33,38 +29,83 @@ export default function DispatchPage() {
   const canCreate = can(role, "dispatch:create");
   const canEdit   = can(role, "dispatch:write");
 
-  const [dispatches, setDispatches] = useState<DispatchEntry[]>(MOCK_DISPATCHES);
-  const [search, setSearch]         = useState("");
-  const [showForm, setShowForm]     = useState(false);
+  const [dispatches, setDispatches] = useState<DispatchEntry[]>([]);
+  const [search,     setSearch]     = useState("");
+  const [showForm,   setShowForm]   = useState(false);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState<string | null>(null);
 
   // New dispatch form state
-  const [jobId,       setJobId]       = useState("");
-  const [party,       setParty]       = useState("");
-  const [instruments, setInstruments] = useState("");
-  const [dcNo,        setDcNo]        = useState(`DC/2026/00${dispatches.length + 3}`);
-  const [dispatchDate,setDispatchDate]= useState(new Date().toISOString().split("T")[0]);
-  const [courier,     setCourier]     = useState("By Hand");
-  const [trackingNo,  setTrackingNo]  = useState("");
-  const [receivedBy,  setReceivedBy]  = useState("");
+  const [jobId,        setJobId]        = useState("");
+  const [party,        setParty]        = useState("");
+  const [instruments,  setInstruments]  = useState("");
+  const [dcNo,         setDcNo]         = useState("");
+  const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split("T")[0]);
+  const [courier,      setCourier]      = useState("By Hand");
+  const [trackingNo,   setTrackingNo]   = useState("");
+  const [receivedBy,   setReceivedBy]   = useState("");
+
+  const fetchDispatches = async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("dispatches")
+      .select("*")
+      .order("dispatch_date", { ascending: false });
+    if (err) {
+      setError(err.message);
+    } else {
+      setDispatches(
+        (data ?? []).map((r: any) => ({
+          id:           String(r.id),
+          jobId:        r.job_id ?? "",
+          party:        r.party ?? "",
+          instruments:  r.instruments ?? "",
+          dcNo:         r.dc_no ?? "",
+          dispatchDate: r.dispatch_date ?? "",
+          courier:      r.courier ?? "",
+          trackingNo:   r.tracking_no ?? "",
+          receivedBy:   r.received_by ?? "",
+          status:       r.status ?? "pending",
+        }))
+      );
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchDispatches(); }, []);
 
   const filtered = dispatches.filter(d =>
     [d.id, d.party, d.instruments, d.dcNo].some(v => v.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!jobId || !party) return;
-    const entry: DispatchEntry = {
-      id: `DC-${String(dispatches.length + 1).padStart(3, "0")}`,
-      jobId, party, instruments, dcNo, dispatchDate, courier, trackingNo, receivedBy,
-      status: "dispatched",
-    };
-    setDispatches([entry, ...dispatches]);
+    const { error: err } = await supabase.from("dispatches").insert({
+      job_id:        jobId,
+      party,
+      instruments,
+      dc_no:         dcNo,
+      dispatch_date: dispatchDate,
+      courier,
+      tracking_no:   trackingNo,
+      received_by:   receivedBy,
+      status:        "dispatched",
+    });
+    if (err) { setError(err.message); return; }
     setShowForm(false);
     setJobId(""); setParty(""); setInstruments(""); setTrackingNo(""); setReceivedBy("");
+    fetchDispatches();
   };
 
   const inputCls = "w-full border border-border rounded-md px-3 py-2 text-sm text-text-primary bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
   const labelCls = "block text-xs font-medium text-text-secondary mb-1";
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-6 h-6 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
@@ -82,6 +123,8 @@ export default function DispatchPage() {
           </button>
         )}
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5 mb-4">{error}</div>}
 
       {/* New dispatch form */}
       {showForm && canCreate && (
