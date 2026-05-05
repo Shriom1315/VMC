@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Plus, Shield, UserCheck, Wrench } from "lucide-react";
 import { Role, useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
+import ComboSelect from "../../components/ComboSelect";
 
 interface AppUser {
   id: string; name: string; email: string; role: Role;
@@ -111,9 +112,11 @@ export default function UserManagementPage() {
             <div><label className={labelCls}>Full Name</label><input value={name} onChange={e => setName(e.target.value)} className={inputCls} placeholder="Full name" /></div>
             <div><label className={labelCls}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} placeholder="user@vikramaditya.com" /></div>
             <div><label className={labelCls}>Role</label>
-              <select value={role} onChange={e => setRole(e.target.value as Role)} className={inputCls}>
-                {assignableRoles.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-              </select>
+              <ComboSelect
+                value={role.charAt(0).toUpperCase() + role.slice(1)}
+                onChange={v => setRole(v.toLowerCase() as Role)}
+                options={assignableRoles.map(r => r.charAt(0).toUpperCase() + r.slice(1))}
+              />
             </div>
           </div>
           <div className="px-5 pb-5 flex gap-2 border-t border-border pt-4">

@@ -1,5 +1,5 @@
-import { ChevronDown } from "lucide-react";
-import { InwardBill, EMPTY_BILL } from "./types";
+import ComboSelect from "../../components/ComboSelect";
+import { InwardBill } from "./types";
 
 interface Props {
   form: Omit<InwardBill, "id">;
@@ -14,18 +14,12 @@ interface Props {
 
 export default function InwardBillForm({ form, editingId, partyNames, onChange, onSave, onUpdate, onDelete, onCancel }: Props) {
   const f = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
-  const s = `${f} appearance-none cursor-pointer`;
   const l = "block text-xs font-medium text-text-secondary mb-1";
 
   const Sel = ({ label, field, options }: { label: string; field: keyof Omit<InwardBill,"id">; options: string[] }) => (
     <div>
       <label className={l}>{label}</label>
-      <div className="relative">
-        <select value={form[field] as string} onChange={e => onChange(field, e.target.value)} className={s}>
-          {options.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-      </div>
+      <ComboSelect value={form[field] as string} onChange={v => onChange(field, v)} options={options} />
     </div>
   );
 
@@ -76,7 +70,7 @@ export default function InwardBillForm({ form, editingId, partyNames, onChange, 
       </div>
 
       <div className="px-5 pb-5 pt-3 border-t border-border flex items-center gap-2">
-        <button onClick={onSave}   className="bg-brand-orange text-white text-xs font-medium px-5 py-2 rounded-lg hover:bg-orange-700 transition-colors">Save</button>
+        <button onClick={onSave}   disabled={editingId !== null} className="bg-brand-orange text-white text-xs font-medium px-5 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
         <button onClick={onUpdate} disabled={editingId === null} className="border border-border text-text-primary text-xs font-medium px-5 py-2 rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Update</button>
         <button onClick={onDelete} disabled={editingId === null} className="border border-red-200 text-red-600 text-xs font-medium px-5 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Delete</button>
       </div>

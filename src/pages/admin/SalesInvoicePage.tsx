@@ -1,6 +1,8 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 import { Plus, Search, Printer } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { supabase } from "../../lib/supabase";
 
 interface Invoice {
@@ -15,6 +17,57 @@ const STATUS_COLOR = {
   paid:    "bg-green-100 text-green-700",
   overdue: "bg-red-100 text-red-700",
 };
+
+function printInvoicePDF(inv: Invoice) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
+  const pageW = 210, marginL = 15, marginR = 15, contentW = pageW - marginL - marginR;
+
+  // Header
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  doc.text("VIKRAMADITYA METROLOGY CENTRE LLP", pageW / 2, 18, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+  doc.text("Plot No. A-15/1, Near Ultratech MIDC Shiroli (P), Tal. Hatkanagale, Dist Kolhapur 416122", pageW / 2, 24, { align: "center" });
+  doc.text("Contact: 9503601616 | Email: vikramadityametrologycenter@gmail.com", pageW / 2, 28, { align: "center" });
+
+  // Title
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+  doc.text("TAX INVOICE", pageW / 2, 36, { align: "center" });
+  doc.line(marginL, 38, pageW - marginR, 38);
+
+  // Invoice details
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`Invoice No: ${inv.invoiceNo}`, marginL, 44);
+  doc.text(`Date: ${inv.invoiceDate}`, pageW - marginR, 44, { align: "right" });
+  doc.text(`Party: ${inv.party}`, marginL, 50);
+  doc.text(`DC Ref: ${inv.dcRef}`, marginL, 56);
+  doc.text(`Status: ${inv.status.toUpperCase()}`, pageW - marginR, 50, { align: "right" });
+
+  doc.line(marginL, 60, pageW - marginR, 60);
+
+  // Amount table
+  doc.autoTable({
+    startY: 64,
+    head: [["Description", "Taxable Amount (₹)", "GST @ 18% (₹)", "Total (₹)"]],
+    body: [
+      ["Calibration / Repair Services", inv.amount.toFixed(2), inv.gstAmount.toFixed(2), inv.total.toFixed(2)],
+    ],
+    theme: "grid",
+    margin: { left: marginL, right: marginR },
+    headStyles: { fillColor: [232, 93, 4], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text(`Total Amount: ₹${inv.total.toLocaleString()}`, pageW - marginR, finalY, { align: "right" });
+
+  // Footer
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+  doc.text("This is a computer-generated invoice.", pageW / 2, finalY + 20, { align: "center" });
+
+  doc.save(`Invoice_${inv.invoiceNo}.pdf`);
+}
 
 export default function SalesInvoicePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -81,7 +134,14 @@ export default function SalesInvoicePage() {
                   <td className="px-4 py-3 font-mono text-text-secondary border-r border-border">₹{inv.gstAmount.toLocaleString()}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-text-primary border-r border-border">₹{inv.total.toLocaleString()}</td>
                   <td className="px-4 py-3 border-r border-border"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[inv.status]}`}>{inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}</span></td>
-                  <td className="px-4 py-3"><button className="text-xs text-brand-orange hover:underline flex items-center gap-1"><Printer size={11} /> Print</button></td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => printInvoicePDF(inv)}
+                      className="text-xs text-brand-orange hover:underline flex items-center gap-1"
+                    >
+                      <Printer size={11} /> Print
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

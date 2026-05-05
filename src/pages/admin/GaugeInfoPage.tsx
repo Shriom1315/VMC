@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
+import ComboSelect from "../../components/ComboSelect";
 import { supabase } from "../../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -243,12 +244,7 @@ export default function GaugeInfoPage() {
           </div>
           <div>
             <label className={labelCls}>Gauge Type</label>
-            <div className="relative">
-              <select value={gaugeType} onChange={e => setGaugeType(e.target.value)} className={selectCls}>
-                {GAUGE_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-            </div>
+            <ComboSelect value={gaugeType} onChange={setGaugeType} options={GAUGE_TYPES} />
           </div>
 
           {/* Row 5 — full width */}
@@ -260,8 +256,8 @@ export default function GaugeInfoPage() {
 
         {/* Action buttons */}
         <div className="px-5 pb-5 pt-3 border-t border-border flex items-center gap-2">
-          <button onClick={handleSave}
-            className="bg-brand-orange text-white text-xs font-medium px-5 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+          <button onClick={handleSave} disabled={editingId !== null}
+            className="bg-brand-orange text-white text-xs font-medium px-5 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Save
           </button>
           <button onClick={handleSave} disabled={editingId === null}

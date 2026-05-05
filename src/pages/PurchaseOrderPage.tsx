@@ -1,21 +1,33 @@
 import { motion } from "motion/react";
-import { useState, useMemo } from "react";
-import { Printer, FileDown, Plus, Trash2 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Printer, FileDown, Plus, Trash2, Save, Eye } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { supabase } from "../lib/supabase";
+import { useAuth, can } from "../context/AuthContext";
 
 interface POItem {
   id: string; poCode: string; particular: string; category: string; size: string;
   qty: number; repair: number; calibration: number; discount: number;
 }
 
+interface SavedPO {
+  id: string; poNumber: string; poDate: string; customerName: string;
+  address: string; totalAmount: number; items: any[]; createdAt: string;
+}
+
 export default function PurchaseOrderPage() {
+  const { user } = useAuth();
+  const canSave = user ? can(user.role, "po:write") : false;
+
   const [poNumber] = useState(`PO-${Math.floor(100000 + Math.random() * 900000)}`);
   const [poDate]   = useState(new Date().toISOString().split("T")[0]);
   const [customerName, setCustomerName] = useState("");
   const [address, setAddress]           = useState("");
   const [clientIdSearch, setClientIdSearch] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+  const [savedList, setSavedList] = useState<SavedPO[]>([]);
+  const [listLoading, setListLoading] = useState(false);
   const [items, setItems] = useState<POItem[]>([
     { id: "1", poCode: "", particular: "", category: "", size: "", qty: 1, repair: 0, calibration: 0, discount: 0 },
   ]);
@@ -55,6 +67,84 @@ export default function PurchaseOrderPage() {
     items.reduce((acc, item) => ({ qty: acc.qty + item.qty, total: acc.total + calcTotal(item) }), { qty: 0, total: 0 }),
     [items]
   );
+
+  // ── Fetch saved POs ──
+  const fetchSaved = async () => {
+    if (!canSave) return;
+    setListLoading(true);
+    const { data } = await supabase.from("purchase_orders").select("*").order("created_at", { ascending: false });
+    setSavedList((data ?? []).map((r: any) => ({
+      id: r.id, poNumber: r.po_number, poDate: r.po_date ?? "",
+      customerName: r.customer_name ?? "", address: r.address ?? "",
+      totalAmount: Number(r.total_amount ?? 0),
+      items: Array.isArray(r.items) ? r.items : [],
+      createdAt: r.created_at,
+    })));
+    setListLoading(false);
+  };
+
+  useEffect(() => { fetchSaved(); }, [canSave]);
+
+  // ── View saved PO — load into form ──
+  const handleViewPO = (po: SavedPO) => {
+    setCustomerName(po.customerName);
+    setAddress(po.address);
+    if (Array.isArray(po.items) && po.items.length > 0) {
+      setItems(po.items.map((it: any) => ({
+        id: it.id ?? Date.now().toString(),
+        poCode: it.poCode ?? "", particular: it.particular ?? "",
+        category: it.category ?? "", size: it.size ?? "",
+        qty: Number(it.qty ?? 1), repair: Number(it.repair ?? 0),
+        calibration: Number(it.calibration ?? 0), discount: Number(it.discount ?? 0),
+      })));
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ── Download saved PO as PDF ──
+  const handleDownloadPO = (po: SavedPO) => {
+    const prevCustomer = customerName;
+    const prevAddress  = address;
+    const prevItems    = items;
+
+    setCustomerName(po.customerName);
+    setAddress(po.address);
+    if (Array.isArray(po.items) && po.items.length > 0) {
+      setItems(po.items.map((it: any) => ({
+        id: it.id ?? Date.now().toString(),
+        poCode: it.poCode ?? "", particular: it.particular ?? "",
+        category: it.category ?? "", size: it.size ?? "",
+        qty: Number(it.qty ?? 1), repair: Number(it.repair ?? 0),
+        calibration: Number(it.calibration ?? 0), discount: Number(it.discount ?? 0),
+      })));
+    }
+
+    setTimeout(() => {
+      exportPDF();
+      setCustomerName(prevCustomer);
+      setAddress(prevAddress);
+      setItems(prevItems);
+    }, 100);
+  };
+
+  // ── Save PO to DB ──
+  const handleSavePO = async () => {
+    if (!canSave) return;
+    setSaveMsg("");
+    const { error } = await supabase.from("purchase_orders").upsert({
+      po_number:     poNumber,
+      po_date:       poDate || null,
+      customer_name: customerName,
+      address,
+      total_qty:     summary.qty,
+      total_amount:  summary.total,
+      items,
+      created_by:    user?.email ?? "",
+    }, { onConflict: "po_number" });
+    if (error) { setSaveMsg("Error: " + error.message); }
+    else { setSaveMsg("Purchase Order saved successfully."); fetchSaved(); }
+    setTimeout(() => setSaveMsg(""), 3000);
+  };
 
   const exportPDF = () => {
     const doc = new jsPDF() as any;
@@ -102,8 +192,18 @@ export default function PurchaseOrderPage() {
           <button onClick={exportPDF} className="inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors">
             <FileDown size={13} /> Export PDF
           </button>
+          {canSave && (
+            <button onClick={handleSavePO} className="inline-flex items-center gap-1.5 bg-green-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-green-700 transition-colors">
+              <Save size={13} /> Save PO
+            </button>
+          )}
         </div>
       </div>
+      {saveMsg && (
+        <div className={`text-xs rounded-lg px-3 py-2 ${saveMsg.startsWith("Error") ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
+          {saveMsg}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-border shadow-sm print:rounded-none print:border-none print:shadow-none flex flex-col gap-0">
         {/* Header fields */}
@@ -221,6 +321,56 @@ export default function PurchaseOrderPage() {
           </div>
         </div>
       </div>
+
+      {/* Saved POs List — admin/manager only */}
+      {canSave && (
+        <div className="bg-white rounded-xl border border-border shadow-sm print:hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold text-text-primary">Saved Purchase Orders</h2>
+            <p className="text-xs text-text-secondary mt-0.5">{savedList.length} records</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[600px]">
+              <thead className="bg-surface-muted border-b border-border">
+                <tr>
+                  {["PO Number","Customer","Date","Total Amount (₹)","Saved On","Actions"].map((h, i) => (
+                    <th key={i} className="px-4 py-2.5 text-xs font-medium text-text-secondary border-r border-border last:border-r-0">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {listLoading ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center"><div className="w-5 h-5 border-2 border-brand-orange border-t-transparent rounded-full animate-spin mx-auto" /></td></tr>
+                ) : savedList.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">No saved purchase orders yet. Fill the form above and click Save PO.</td></tr>
+                ) : savedList.map(po => (
+                  <tr key={po.id} className="hover:bg-surface-subtle transition-colors">
+                    <td className="px-4 py-3 font-mono font-semibold text-brand-orange border-r border-border">{po.poNumber}</td>
+                    <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{po.customerName || "—"}</td>
+                    <td className="px-4 py-3 text-text-secondary border-r border-border">{po.poDate}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-text-primary border-r border-border">₹{po.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-text-secondary border-r border-border">{new Date(po.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewPO(po)}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                      >
+                        <Eye size={12} /> View
+                      </button>
+                      <button
+                        onClick={() => handleDownloadPO(po)}
+                        className="inline-flex items-center gap-1 text-xs text-brand-orange hover:underline"
+                      >
+                        <FileDown size={12} /> PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

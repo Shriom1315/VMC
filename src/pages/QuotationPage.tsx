@@ -1,10 +1,33 @@
 import { motion } from "motion/react";
-import { useState } from "react";
-import { Printer, FileDown, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Printer, FileDown, Plus, Trash2, Save, Eye, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { supabase } from "../lib/supabase";
+import { useAuth, can } from "../context/AuthContext";
+
+interface SavedQuotation {
+  id: string;
+  quotationNo: string;
+  date: string;
+  clientName: string;
+  clientAddress: string;
+  clientGstin: string;
+  kindAttn: string;
+  clientDcNo: string;
+  clientDcDate: string;
+  poNo: string;
+  discountPercent: number;
+  netTotal: number;
+  roundedTotal: number;
+  items: any[];
+  createdAt: string;
+}
 
 export default function QuotationPage() {
+  const { user } = useAuth();
+  const canSave = user ? can(user.role, "quotation:write") : false;
+
   const [quotationNo, setQuotationNo] = useState(
     `VE-${Math.floor(2000 + Math.random() * 1000)}-${new Date().getFullYear().toString().slice(-2)}`
   );
@@ -17,6 +40,11 @@ export default function QuotationPage() {
   const [clientDCNo, setClientDCNo] = useState("");
   const [poNo, setPoNo] = useState("");
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  // Saved quotations list
+  const [savedList, setSavedList] = useState<SavedQuotation[]>([]);
+  const [listLoading, setListLoading] = useState(false);
 
   const [items, setItems] = useState([
     { id: 1, desc: "", identification: "", size: "", hsn: "", repair: 0, calib: 0, qty: 1 },
@@ -35,6 +63,124 @@ export default function QuotationPage() {
   const discountAmount = baseTotal * (discountPercent / 100);
   const netTotal = baseTotal - discountAmount;
   const roundedTotal = Math.round(netTotal);
+
+  // ── Fetch saved quotations ──
+  const fetchSaved = async () => {
+    if (!canSave) return;
+    setListLoading(true);
+    const { data } = await supabase.from("quotations").select("*").order("created_at", { ascending: false });
+    setSavedList((data ?? []).map((r: any) => ({
+      id: r.id, quotationNo: r.quotation_no, date: r.date ?? "",
+      clientName: r.client_name ?? "", clientAddress: r.client_address ?? "",
+      clientGstin: r.client_gstin ?? "", kindAttn: r.kind_attn ?? "",
+      clientDcNo: r.client_dc_no ?? "", clientDcDate: r.client_dc_date ?? "",
+      poNo: r.po_no ?? "", discountPercent: Number(r.discount_percent ?? 0),
+      netTotal: Number(r.net_total ?? 0), roundedTotal: Number(r.rounded_total ?? 0),
+      items: Array.isArray(r.items) ? r.items : [], createdAt: r.created_at,
+    })));
+    setListLoading(false);
+  };
+
+  useEffect(() => { fetchSaved(); }, [canSave]);
+
+  // ── Save quotation to DB ──
+  const handleSaveQuotation = async () => {
+    if (!canSave) return;
+    setSaveMsg("");
+    const { error } = await supabase.from("quotations").upsert({
+      quotation_no:    quotationNo,
+      date:            date || null,
+      client_name:     clientName,
+      client_address:  clientAddress,
+      client_gstin:    clientGSTIN,
+      kind_attn:       kindAttn,
+      client_dc_no:    clientDCNo,
+      client_dc_date:  clientDate || null,
+      po_no:           poNo,
+      discount_percent: discountPercent,
+      base_total:      baseTotal,
+      discount_amount: discountAmount,
+      net_total:       netTotal,
+      rounded_total:   roundedTotal,
+      items:           items,
+      created_by:      user?.email ?? "",
+    }, { onConflict: "quotation_no" });
+    if (error) { setSaveMsg("Error: " + error.message); }
+    else { setSaveMsg("Quotation saved successfully."); fetchSaved(); }
+    setTimeout(() => setSaveMsg(""), 3000);
+  };
+
+  // ── View saved quotation — load into form ──
+  const handleView = (q: SavedQuotation) => {
+    setQuotationNo(q.quotationNo);
+    setDate(q.date);
+    setClientDate(q.clientDcDate);
+    setClientName(q.clientName);
+    setClientAddress(q.clientAddress);
+    setClientGSTIN(q.clientGstin);
+    setKindAttn(q.kindAttn);
+    setClientDCNo(q.clientDcNo);
+    setPoNo(q.poNo);
+    setDiscountPercent(q.discountPercent);
+    if (Array.isArray(q.items) && q.items.length > 0) {
+      setItems(q.items.map((it: any, idx: number) => ({
+        id: it.id ?? idx + 1,
+        desc: it.desc ?? "",
+        identification: it.identification ?? "",
+        size: it.size ?? "",
+        hsn: it.hsn ?? "",
+        repair: Number(it.repair ?? 0),
+        calib: Number(it.calib ?? 0),
+        qty: Number(it.qty ?? 1),
+      })));
+    }
+    // Scroll to top of form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ── Download saved quotation as PDF ──
+  const handleDownload = (q: SavedQuotation) => {
+    // Temporarily set state to the saved values, generate PDF, then restore
+    const prevNo   = quotationNo;
+    const prevDate = date;
+    const prevName = clientName;
+    const prevAddr = clientAddress;
+    const prevGst  = clientGSTIN;
+    const prevAttn = kindAttn;
+    const prevDcNo = clientDCNo;
+    const prevCDate= clientDate;
+    const prevPo   = poNo;
+    const prevDisc = discountPercent;
+    const prevItems= items;
+
+    setQuotationNo(q.quotationNo);
+    setDate(q.date);
+    setClientName(q.clientName);
+    setClientAddress(q.clientAddress);
+    setClientGSTIN(q.clientGstin);
+    setKindAttn(q.kindAttn);
+    setClientDCNo(q.clientDcNo);
+    setClientDate(q.clientDcDate);
+    setPoNo(q.poNo);
+    setDiscountPercent(q.discountPercent);
+    if (Array.isArray(q.items) && q.items.length > 0) {
+      setItems(q.items.map((it: any, idx: number) => ({
+        id: it.id ?? idx + 1, desc: it.desc ?? "", identification: it.identification ?? "",
+        size: it.size ?? "", hsn: it.hsn ?? "",
+        repair: Number(it.repair ?? 0), calib: Number(it.calib ?? 0), qty: Number(it.qty ?? 1),
+      })));
+    }
+
+    // Use setTimeout to let React re-render with new state before generating PDF
+    setTimeout(() => {
+      exportPDF();
+      // Restore previous state
+      setQuotationNo(prevNo); setDate(prevDate); setClientName(prevName);
+      setClientAddress(prevAddr); setClientGSTIN(prevGst); setKindAttn(prevAttn);
+      setClientDCNo(prevDcNo); setClientDate(prevCDate); setPoNo(prevPo);
+      setDiscountPercent(prevDisc); setItems(prevItems);
+    }, 100);
+  };
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
@@ -400,8 +546,18 @@ export default function QuotationPage() {
             <button onClick={exportPDF} className="inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors">
               <FileDown size={13} /> Export PDF
             </button>
+            {canSave && (
+              <button onClick={handleSaveQuotation} className="inline-flex items-center gap-1.5 bg-green-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                <Save size={13} /> Save Quotation
+              </button>
+            )}
           </div>
         </div>
+        {saveMsg && (
+          <div className={`text-xs rounded-lg px-3 py-2 ${saveMsg.startsWith("Error") ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
+            {saveMsg}
+          </div>
+        )}
 
         <div className="bg-white rounded-xl border border-border shadow-sm flex flex-col">
           {/* Client Info Grid */}
@@ -567,12 +723,53 @@ export default function QuotationPage() {
             </div>
           </div>
         </div>
+
+        {/* Saved Quotations List — admin/manager only */}
+        {canSave && (
+          <div className="bg-white rounded-xl border border-border shadow-sm">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-text-primary">Saved Quotations</h2>
+              <p className="text-xs text-text-secondary mt-0.5">{savedList.length} records</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[600px]">
+                <thead className="bg-surface-muted border-b border-border">
+                  <tr>
+                    {["Quotation No.","Client","Date","Net Total (₹)","Saved On","Actions"].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-xs font-medium text-text-secondary border-r border-border last:border-r-0">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {listLoading ? (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center"><div className="w-5 h-5 border-2 border-brand-orange border-t-transparent rounded-full animate-spin mx-auto" /></td></tr>
+                  ) : savedList.length === 0 ? (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">No saved quotations yet. Fill the form above and click Save Quotation.</td></tr>
+                  ) : savedList.map(q => (
+                    <tr key={q.id} className="hover:bg-surface-subtle transition-colors">
+                      <td className="px-4 py-3 font-mono font-semibold text-brand-orange border-r border-border">{q.quotationNo}</td>
+                      <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{q.clientName || "—"}</td>
+                      <td className="px-4 py-3 text-text-secondary border-r border-border">{q.date}</td>
+                      <td className="px-4 py-3 font-mono font-semibold text-text-primary border-r border-border">₹{q.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-text-secondary border-r border-border">{new Date(q.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <button onClick={() => handleView(q)}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                          <Eye size={12} /> View
+                        </button>
+                        <button onClick={() => handleDownload(q)}
+                          className="inline-flex items-center gap-1 text-xs text-brand-orange hover:underline">
+                          <Download size={12} /> PDF
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
-        <div className="text-center py-2">
-          <h1 className="text-[18pt] font-bold text-black">VIKRAMADITYA ENTERPRISES.</h1>
-          <p className="text-[7.5pt] text-black">Office : A/P Male, Tal. Panhala, Dist. Kolhapur 416122</p>
-          <p className="text-[7.5pt] text-black">Contact No -9503601616 &nbsp; Email- kiranpatil24586@gmail.com</p>
-        </div>

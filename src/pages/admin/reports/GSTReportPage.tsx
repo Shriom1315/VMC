@@ -41,7 +41,18 @@ export default function GSTReportPage() {
           <select value={month} onChange={e => setMonth(e.target.value)} className="border border-border rounded-md px-3 py-2 text-xs text-text-primary bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange">
             {MONTHS.map(m => <option key={m}>{m}</option>)}
           </select>
-          <button className="inline-flex items-center gap-1.5 border border-border text-text-secondary text-xs font-medium px-3 py-2 rounded-lg hover:bg-surface-muted transition-colors"><Download size={13} /> Export</button>
+          <button
+            onClick={() => {
+              const header = "Invoice No.,Party,Date,Taxable (₹),CGST (₹),SGST (₹),IGST (₹),Total (₹)";
+              const csvRows = rows.map(r => [r.invoiceNo, r.party, r.date, r.taxable, r.cgst.toFixed(2), r.sgst.toFixed(2), r.igst.toFixed(2), r.total.toFixed(2)].join(","));
+              const blob = new Blob([[header, ...csvRows].join("\n")], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = `GST_Report_${month.replace(" ","_")}.csv`; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="inline-flex items-center gap-1.5 border border-border text-text-secondary text-xs font-medium px-3 py-2 rounded-lg hover:bg-surface-muted transition-colors">
+            <Download size={13} /> Export CSV
+          </button>
         </div>
       </div>
 

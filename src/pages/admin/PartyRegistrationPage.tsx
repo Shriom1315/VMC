@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { ChevronDown, UserPlus, Search } from "lucide-react";
+import { UserPlus, Search } from "lucide-react";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
+import ComboSelect from "../../components/ComboSelect";
 import { supabase } from "../../lib/supabase";
 
 interface Party {
@@ -128,12 +129,7 @@ export default function PartyRegistrationPage() {
   const SelectField = ({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) => (
     <div>
       <label className={labelCls}>{label}</label>
-      <div className="relative">
-        <select value={value} onChange={e => onChange(e.target.value)} className={selectCls}>
-          {options.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-      </div>
+      <ComboSelect value={value} onChange={onChange} options={options} />
     </div>
   );
 
@@ -177,7 +173,7 @@ export default function PartyRegistrationPage() {
           <SelectField label="Billing Firm" value={billingFirm} onChange={setBillingFirm} options={["Vikramaditya Calibration","Vikramaditya Enterprises"]} />
         </div>
         <div className="px-5 pb-5 pt-3 border-t border-border flex items-center gap-2">
-          <button onClick={handleSave} className="bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">Save</button>
+          <button onClick={handleSave} disabled={editingId !== null} className="bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
           <button onClick={handleSave} disabled={editingId === null} className="border border-border text-text-primary text-xs font-medium px-4 py-2 rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Update</button>
           <button onClick={handleDelete} disabled={editingId === null} className="border border-red-200 text-red-600 text-xs font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Delete</button>
           {editingId !== null && <button onClick={resetForm} className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-2">Cancel</button>}

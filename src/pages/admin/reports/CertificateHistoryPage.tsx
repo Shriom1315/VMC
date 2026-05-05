@@ -1,6 +1,8 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 import { Search, Printer, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { supabase } from "../../../lib/supabase";
 
 interface Certificate {
@@ -20,6 +22,71 @@ const RESULT_COLOR = {
   fail:        "bg-red-100 text-red-700",
   conditional: "bg-amber-100 text-amber-700",
 };
+
+function downloadCertPDF(c: Certificate) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
+  const pageW = 210, marginL = 15, marginR = 15;
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text("VIKRAMADITYA METROLOGY CENTRE LLP", pageW / 2, 18, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+  doc.text("Plot No. A-15/1, Near Ultratech MIDC Shiroli (P), Kolhapur 416122", pageW / 2, 24, { align: "center" });
+  doc.line(marginL, 28, pageW - marginR, 28);
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+  doc.text(`Calibration Certificate: ${c.certNo}`, pageW / 2, 35, { align: "center" });
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  const rows = [
+    ["Party / Client", c.party],
+    ["Instrument", c.instrument],
+    ["Serial No.", c.serialNo],
+    ["Calibration Date", c.calibDate],
+    ["Next Due Date", c.dueDate],
+    ["Calibrated By", c.technician],
+    ["Result", c.result.toUpperCase()],
+  ];
+  doc.autoTable({
+    startY: 40,
+    body: rows,
+    theme: "grid",
+    margin: { left: marginL, right: marginR },
+    bodyStyles: { fontSize: 9 },
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+  });
+
+  doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+  doc.text("This certificate is issued by Vikramaditya Metrology Centre LLP.", pageW / 2, doc.lastAutoTable.finalY + 12, { align: "center" });
+
+  doc.save(`Certificate_${c.certNo.replace(/\//g, "-")}.pdf`);
+}
+
+function printCert(c: Certificate) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(`<!DOCTYPE html><html><head><title>Certificate ${c.certNo}</title>
+    <style>body{font-family:sans-serif;padding:30px;max-width:700px;margin:0 auto}
+    h2{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}
+    td{padding:8px 12px;border:1px solid #ccc}td:first-child{font-weight:bold;width:40%}
+    .result{font-weight:bold;color:${c.result === "pass" ? "green" : c.result === "fail" ? "red" : "orange"}}
+    @media print{@page{margin:1cm}}</style></head><body>
+    <h2>VIKRAMADITYA METROLOGY CENTRE LLP</h2>
+    <p style="text-align:center;font-size:12px">Plot No. A-15/1, Near Ultratech MIDC Shiroli (P), Kolhapur 416122</p>
+    <h3 style="text-align:center">Calibration Certificate: ${c.certNo}</h3>
+    <table>
+      <tr><td>Party / Client</td><td>${c.party}</td></tr>
+      <tr><td>Instrument</td><td>${c.instrument}</td></tr>
+      <tr><td>Serial No.</td><td>${c.serialNo}</td></tr>
+      <tr><td>Calibration Date</td><td>${c.calibDate}</td></tr>
+      <tr><td>Next Due Date</td><td>${c.dueDate}</td></tr>
+      <tr><td>Calibrated By</td><td>${c.technician}</td></tr>
+      <tr><td>Result</td><td class="result">${c.result.toUpperCase()}</td></tr>
+    </table>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 400);
+}
 
 export default function CertificateHistoryPage() {
   const [certs,   setCerts]   = useState<Certificate[]>([]);
@@ -114,8 +181,12 @@ export default function CertificateHistoryPage() {
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${RESULT_COLOR[c.result]}`}>{c.result}</span>
                   </td>
                   <td className="px-4 py-3 flex items-center gap-2">
-                    <button className="text-xs text-text-secondary hover:text-brand-orange transition-colors" title="Print"><Printer size={13} /></button>
-                    <button className="text-xs text-text-secondary hover:text-brand-orange transition-colors" title="Download"><Download size={13} /></button>
+                    <button onClick={() => printCert(c)} className="text-xs text-text-secondary hover:text-brand-orange transition-colors flex items-center gap-1" title="Print">
+                      <Printer size={13} /> Print
+                    </button>
+                    <button onClick={() => downloadCertPDF(c)} className="text-xs text-text-secondary hover:text-brand-orange transition-colors flex items-center gap-1" title="Download PDF">
+                      <Download size={13} /> PDF
+                    </button>
                   </td>
                 </tr>
               ))}
