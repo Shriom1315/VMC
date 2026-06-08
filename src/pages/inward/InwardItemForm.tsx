@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ComboSelect from "../../components/ComboSelect";
 import { InwardItem, InwardParameter } from "./types";
-import { calcPlugGauge, fmt4, CalcResult } from "./toleranceCalc";
+import { calcPlugGauge, calcSnapGauge, fmt4, CalcResult } from "./toleranceCalc";
 
 interface Props {
   form: Omit<InwardItem, "id" | "inwardBillId">;
@@ -13,15 +13,29 @@ interface Props {
   onBack: () => void;
 }
 
+// Gauge types that measure a shaft (outside measurement — IS 3455 Table 3)
+// Ring gauges check a shaft's OD → outside measurement
+// Snap gauges check a shaft's OD → outside measurement
+// Plug gauges check a hole's ID → inside measurement (Table 2)
+const SNAP_GAUGE_TYPES = new Set([
+  "Fixed Snap Gauge",
+  "Go,No-go Ring gauge",
+  "Plain Ring Gauge",
+]);
+
+function isSnapType(gaugeType: string): boolean {
+  return SNAP_GAUGE_TYPES.has(gaugeType);
+}
+
 export default function InwardItemForm({ form, editingItemId, gaugeNames, onChange, onSave, onUpdate, onBack }: Props) {
   const [calcInfo, setCalcInfo] = useState<CalcResult | null>(null);
   // Grade Method: K and G entered directly
   const [kValue, setKValue] = useState("");
   const [gValue, setGValue] = useState("");
 
-  const f = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
-  const s = `${f} appearance-none cursor-pointer`;
-  const l = "block text-xs font-medium text-text-secondary mb-1";
+  const f   = "w-full bg-white border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange transition-colors";
+  const s   = `${f} appearance-none cursor-pointer`;
+  const l   = "block text-xs font-medium text-text-secondary mb-1";
   const inp = "w-full border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white";
 
   // ── Auto-calculate: Tolerance Method ──────────────────────────────────────
@@ -32,10 +46,11 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
     const LT = parseFloat(form.lowerTolerance);
     if (isNaN(D) || isNaN(UT) || isNaN(LT)) return;
 
-    const result = calcPlugGauge(D, UT, LT);
+    const snap   = isSnapType(form.gaugeType);
+    const result = snap ? calcSnapGauge(D, UT, LT) : calcPlugGauge(D, UT, LT);
     setCalcInfo(result);
     applyResult(result);
-  }, [form.method, form.size, form.upperTolerance, form.lowerTolerance]);
+  }, [form.method, form.gaugeType, form.size, form.upperTolerance, form.lowerTolerance]);
 
   // ── Auto-calculate: Grade Method (K and G entered directly) ───────────────
   useEffect(() => {
@@ -47,10 +62,11 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
     const D  = (K + G) / 2;
     const UT = G - D;
     const LT = K - D;
-    const result = calcPlugGauge(D, UT, LT);
+    const snap   = isSnapType(form.gaugeType);
+    const result = snap ? calcSnapGauge(D, UT, LT) : calcPlugGauge(D, UT, LT);
     setCalcInfo(result);
     applyResult(result);
-  }, [form.method, kValue, gValue]);
+  }, [form.method, form.gaugeType, kValue, gValue]);
 
   function applyResult(result: CalcResult) {
     const updated: InwardParameter[] = [
@@ -86,6 +102,40 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
     </div>
   );
 
+  const renderCalcInfoBar = () => {
+    if (!calcInfo) return null;
+    const isSnap = calcInfo.kind === "snap";
+    return (
+      <div className="flex flex-wrap gap-4 text-xs text-text-secondary bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+        <span>K = <strong className="text-text-primary">{fmt4(calcInfo.K)}</strong></span>
+        <span>G = <strong className="text-text-primary">{fmt4(calcInfo.G)}</strong></span>
+        <span>T = <strong className="text-text-primary">{calcInfo.T_um} μm</strong></span>
+        <span>Grade = <strong className="text-brand-orange">{calcInfo.grade}</strong></span>
+        {isSnap ? (
+          <>
+            <span>Z1 = {calcInfo.Z1_um} μm</span>
+            <span>H1/2 = {calcInfo.halfH1_um} μm</span>
+            <span>HP/2 = {calcInfo.halfHp_um} μm</span>
+            <span>Y1 = {calcInfo.Y1_um} μm</span>
+          </>
+        ) : (
+          <>
+            <span>Z = {calcInfo.Z_um} μm</span>
+            <span>H/2 = {calcInfo.halfH_um} μm</span>
+            <span>Hs/2 = {calcInfo.halfHs_um} μm</span>
+            <span>Y = {calcInfo.Y_um} μm</span>
+          </>
+        )}
+        {(calcInfo.at_um ?? 0) > 0 && (
+          <span>@ = {calcInfo.at_um} μm</span>
+        )}
+        <span className="ml-auto text-[10px] text-text-muted font-medium uppercase tracking-wide">
+          {isSnap ? "Outside / Shaft (Table 3)" : "Inside / Hole (Table 2)"}
+        </span>
+      </div>
+    );
+  };
+
   const renderMethodInputs = () => {
     if (form.method === "Tolerance Method") {
       return (
@@ -95,34 +145,27 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
               <span className="text-xs font-medium text-text-secondary whitespace-nowrap">Size (D)</span>
               <input value={form.size} onChange={e => onChange("size", e.target.value)}
                 className="w-24 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
-                placeholder="e.g. 20" />
+                placeholder="e.g. 50" />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-text-secondary whitespace-nowrap">Upper Tolerance</span>
               <input value={form.upperTolerance} onChange={e => onChange("upperTolerance", e.target.value)}
-                className="w-24 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
-                placeholder="e.g. +0.100" />
+                className="w-28 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
+                placeholder="e.g. +0.350" />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-text-secondary whitespace-nowrap">Lower Tolerance</span>
               <input value={form.lowerTolerance} onChange={e => onChange("lowerTolerance", e.target.value)}
-                className="w-24 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
-                placeholder="e.g. -0.100" />
+                className="w-28 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
+                placeholder="e.g. -0.350" />
             </div>
           </div>
-          {calcInfo && (
-            <div className="flex flex-wrap gap-4 text-xs text-text-secondary bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
-              <span>K = <strong className="text-text-primary">{fmt4(calcInfo.K)}</strong></span>
-              <span>G = <strong className="text-text-primary">{fmt4(calcInfo.G)}</strong></span>
-              <span>T = <strong className="text-text-primary">{calcInfo.T_um} μm</strong></span>
-              <span>Grade = <strong className="text-brand-orange">{calcInfo.grade}</strong></span>
-              <span>Z = {calcInfo.Z_um} μm</span>
-              <span>H/2 = {calcInfo.halfH_um} μm</span>
-              <span>Y = {calcInfo.Y_um} μm</span>
-            </div>
-          )}
+          {renderCalcInfoBar()}
           <p className="text-[11px] text-text-muted">
-            IT Grade is auto-detected from T_μm per IS 3455:1971 Table 2. Parameters update instantly.
+            IT Grade auto-detected from T_μm per IS 3455:1971 —{" "}
+            {isSnapType(form.gaugeType)
+              ? "Table 3 (Outside/Shaft): Go = (G−Z1) ± H1/2  ·  No-Go = K ± H1/2  ·  Wear = G+Y1"
+              : "Table 2 (Inside/Hole): Go = (K+Z) ± H/2  ·  No-Go = G ± H/2  ·  Wear = K−Y"}
           </p>
         </div>
       );
@@ -134,22 +177,14 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface-muted rounded-lg px-4 py-3">
             <div>
               <label className={l}>K — Lower limit of work piece</label>
-              <input value={kValue} onChange={e => setKValue(e.target.value)} className={f} placeholder="e.g. 29.800" />
+              <input value={kValue} onChange={e => setKValue(e.target.value)} className={f} placeholder="e.g. 49.650" />
             </div>
             <div>
               <label className={l}>G — Higher limit of work piece</label>
-              <input value={gValue} onChange={e => setGValue(e.target.value)} className={f} placeholder="e.g. 30.200" />
+              <input value={gValue} onChange={e => setGValue(e.target.value)} className={f} placeholder="e.g. 50.350" />
             </div>
           </div>
-          {calcInfo && (
-            <div className="flex flex-wrap gap-4 text-xs text-text-secondary bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
-              <span>T = <strong className="text-text-primary">{calcInfo.T_um} μm</strong></span>
-              <span>Grade = <strong className="text-brand-orange">{calcInfo.grade}</strong></span>
-              <span>Z = {calcInfo.Z_um} μm</span>
-              <span>H/2 = {calcInfo.halfH_um} μm</span>
-              <span>Y = {calcInfo.Y_um} μm</span>
-            </div>
-          )}
+          {renderCalcInfoBar()}
           <p className="text-[11px] text-text-muted">
             Enter K and G directly. IT Grade auto-detected per IS 3455:1971.
           </p>
@@ -166,7 +201,7 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
         <table className="w-full text-xs">
           <thead className="bg-gray-800 text-white">
             <tr>
-              {["Parameter(mm)","Basic-Size","Specification Limit Max","Specification Limit Min","Wear Limit"].map(h => (
+              {["Parameter (mm)", "Basic Size", "Spec. Limit Max", "Spec. Limit Min", "Wear Limit"].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -212,7 +247,18 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
           <ComboSelect value={form.gaugeName} onChange={v => onChange("gaugeName", v)} options={gaugeNames} placeholder="Select or type gauge name..." />
         </div>
         <Sel label="Class" field="class" options={["No Type","Class A","Class B","Class C","Class X"]} />
-        <Sel label="Gauge Type" field="gaugeType" options={["OD Limit Gauge","ID Limit Gauge","Plain Plug Gauge","Plain Ring Gauge","Thread Plug Gauge","Thread Ring Gauge","Taper Plug Gauge","Taper Ring Gauge","Dial Indicator","Vernier Caliper","Micrometer","Height Gauge","Depth Micrometer","Bore Gauge","Comparator Stand","Angle Plate","V Block","Master Ring","Digital Dial Gauge","External Micrometer","Fixe Range Gauge"]} />
+        <Sel
+          label="Gauge Type"
+          field="gaugeType"
+          options={[
+            "OD Limit Gauge","ID Limit Gauge","Plain Plug Gauge","Plain Ring Gauge",
+            "Thread Plug Gauge","Thread Ring Gauge","Taper Plug Gauge","Taper Ring Gauge",
+            "Fixed Snap Gauge","Go,No-go Ring gauge",
+            "Dial Indicator","Vernier Caliper","Micrometer","Height Gauge",
+            "Depth Micrometer","Bore Gauge","Comparator Stand","Angle Plate","V Block",
+            "Master Ring","Digital Dial Gauge","External Micrometer","Fixe Range Gauge",
+          ]}
+        />
         <div />
         <div><label className={l}>Identification No.</label><input value={form.identificationNo} onChange={e => onChange("identificationNo", e.target.value)} className={f} /></div>
         <div><label className={l}>Calibration Frequency</label><input value={form.calibFrequency} onChange={e => onChange("calibFrequency", e.target.value)} className={f} /></div>
