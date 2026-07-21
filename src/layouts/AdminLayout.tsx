@@ -19,6 +19,7 @@ import QuotationPage from "../pages/QuotationPage";
 import PurchaseOrderPage from "../pages/PurchaseOrderPage";
 import MaterialInwardPage from "../pages/MaterialInwardPage";
 import GaugeInfoPage from "../pages/admin/GaugeInfoPage";
+import EquipmentHistoryPage from "../pages/admin/EquipmentHistoryPage";
 import { useAuth, can } from "../context/AuthContext";
 
 function Breadcrumb() {
@@ -122,7 +123,7 @@ export default function AdminLayout() {
             <Route path="/basic-registration/party"          element={<PartyRegistrationPage />} />
             <Route path="/basic-registration/gauge-info"     element={<GaugeInfoPage />} />
             <Route path="/basic-registration/new-equipment"  element={<PlaceholderPage title="New Equipment" />} />
-            <Route path="/basic-registration/equipment-hist" element={<PlaceholderPage title="Equipment History" />} />
+            <Route path="/basic-registration/equipment-hist" element={<EquipmentHistoryPage />} />
             <Route path="/basic-registration/uncertainty"    element={<PlaceholderPage title="Uncertainty Reg" />} />
             <Route path="/basic-registration/scope"          element={
               can(user?.role ?? "staff", "scope:read")
