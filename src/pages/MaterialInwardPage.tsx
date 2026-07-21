@@ -1,14 +1,15 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { Plus, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, ChevronRight, Printer } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import ExportToolbar, { ColumnDef } from "../components/ExportToolbar";
 import InwardBillForm from "./inward/InwardBillForm";
 import InwardItemForm from "./inward/InwardItemForm";
+import InwardChallan from "./inward/InwardChallan";
 import { InwardBill, InwardItem, InwardParameter, EMPTY_BILL, EMPTY_ITEM } from "./inward/types";
 
 // ─── View modes ───────────────────────────────────────────────
-type View = "list" | "items" | "edit_item";
+type View = "list" | "items" | "edit_item" | "challan";
 
 // ─── Column defs for export ───────────────────────────────────
 const BILL_COLS: ColumnDef[] = [
@@ -61,13 +62,18 @@ export default function MaterialInwardPage() {
   // ── Master data ──
   const [partyNames,     setPartyNames]     = useState<string[]>([]);
   const [gaugeNames,     setGaugeNames]     = useState<string[]>([]);
+  // map of party name → address for challan
+  const [partyAddressMap, setPartyAddressMap] = useState<Record<string, string>>({});
 
   const ROWS = 10;
 
   // ── Fetch master data ──
   useEffect(() => {
-    supabase.from("parties").select("name").order("name").then(({ data }) => {
+    supabase.from("parties").select("name, address").order("name").then(({ data }) => {
       setPartyNames((data ?? []).map((r: any) => r.name));
+      const addrMap: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { addrMap[r.name] = r.address ?? ""; });
+      setPartyAddressMap(addrMap);
     });
     supabase.from("gauges").select("gauge_name").order("gauge_name").then(({ data }) => {
       setGaugeNames((data ?? []).map((r: any) => r.gauge_name));
@@ -227,8 +233,20 @@ export default function MaterialInwardPage() {
     setActiveBillId(bill.id);
     setItemForm(EMPTY_ITEM);
     setEditingItemId(null);
+    setShowForm(false);
+    setExpandedRow(null);
     fetchItems(bill.id);
     setView("items");
+  };
+
+  // ── Print Challan — fetch items then switch to challan view ──
+  const handlePrintChallan = async (bill: InwardBill) => {
+    setActiveBillId(bill.id);
+    setShowForm(false);
+    setExpandedRow(null);
+    await fetchItems(bill.id);
+    setView("challan");
+    setTimeout(() => window.print(), 300);
   };
 
   // ── Filtered / paginated bills ──
@@ -252,6 +270,35 @@ export default function MaterialInwardPage() {
   const itemExportData = filteredItems.map(it => ({ labId: it.labId, gaugeName: it.gaugeName, identificationNo: it.identificationNo, specification: it.specification, manuSrNo: it.manuSrNo, process: it.process }));
 
   const activeBill = bills.find(b => b.id === activeBillId);
+
+  // ── Render: Challan print view ──
+  if (view === "challan" && activeBill) {
+    return (
+      <div>
+        {/* Screen toolbar — hidden when printing */}
+        <div className="print:hidden p-4 flex items-center gap-3 border-b border-border bg-white">
+          <button
+            onClick={() => setView("list")}
+            className="border border-border text-text-secondary text-xs font-medium px-4 py-2 rounded-lg hover:bg-surface-muted transition-colors"
+          >
+            ← Back
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors inline-flex items-center gap-1.5"
+          >
+            <Printer size={13} /> Print / Save PDF
+          </button>
+          <span className="text-xs text-text-secondary">Inward Challan — {activeBill.clientName}</span>
+        </div>
+        <InwardChallan
+          bill={activeBill}
+          items={items}
+          clientAddress={partyAddressMap[activeBill.clientName] ?? ""}
+        />
+      </div>
+    );
+  }
 
   // ── Render: Items view ──
   if (view === "items" || view === "edit_item") {
@@ -448,6 +495,12 @@ export default function MaterialInwardPage() {
                           <button onClick={() => handleViewData(bill)}
                             className="bg-red-500 text-white text-xs font-medium px-4 py-1.5 rounded hover:bg-red-600 transition-colors">
                             View Data
+                          </button>
+                          <button
+                            onClick={() => handlePrintChallan(bill)}
+                            className="inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-4 py-1.5 rounded hover:bg-orange-700 transition-colors"
+                          >
+                            <Printer size={12} /> Print Challan
                           </button>
                         </div>
                       </td>

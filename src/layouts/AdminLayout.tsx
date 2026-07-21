@@ -20,6 +20,8 @@ import PurchaseOrderPage from "../pages/PurchaseOrderPage";
 import MaterialInwardPage from "../pages/MaterialInwardPage";
 import GaugeInfoPage from "../pages/admin/GaugeInfoPage";
 import EquipmentHistoryPage from "../pages/admin/EquipmentHistoryPage";
+import NewEquipmentPage from "../pages/admin/NewEquipmentPage";
+import ScopeRegistrationPage from "../pages/admin/ScopeRegistrationPage";
 import { useAuth, can } from "../context/AuthContext";
 
 function Breadcrumb() {
@@ -122,12 +124,12 @@ export default function AdminLayout() {
             {/* Basic Registration */}
             <Route path="/basic-registration/party"          element={<PartyRegistrationPage />} />
             <Route path="/basic-registration/gauge-info"     element={<GaugeInfoPage />} />
-            <Route path="/basic-registration/new-equipment"  element={<PlaceholderPage title="New Equipment" />} />
+            <Route path="/basic-registration/new-equipment"  element={<NewEquipmentPage />} />
             <Route path="/basic-registration/equipment-hist" element={<EquipmentHistoryPage />} />
             <Route path="/basic-registration/uncertainty"    element={<PlaceholderPage title="Uncertainty Reg" />} />
             <Route path="/basic-registration/scope"          element={
               can(user?.role ?? "staff", "scope:read")
-                ? <PlaceholderPage title="Scope Registration" />
+                ? <ScopeRegistrationPage />
                 : <Navigate to="/unauthorized" replace />
             } />
             <Route path="/basic-registration/thread-specs"   element={<PlaceholderPage title="Thread / Ring / Plug Spec" />} />
