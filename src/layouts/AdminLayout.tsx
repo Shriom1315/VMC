@@ -22,6 +22,7 @@ import GaugeInfoPage from "../pages/admin/GaugeInfoPage";
 import EquipmentHistoryPage from "../pages/admin/EquipmentHistoryPage";
 import NewEquipmentPage from "../pages/admin/NewEquipmentPage";
 import ScopeRegistrationPage from "../pages/admin/ScopeRegistrationPage";
+import UncertaintyRegPage from "../pages/admin/UncertaintyRegPage";
 import { useAuth, can } from "../context/AuthContext";
 
 function Breadcrumb() {
@@ -126,7 +127,7 @@ export default function AdminLayout() {
             <Route path="/basic-registration/gauge-info"     element={<GaugeInfoPage />} />
             <Route path="/basic-registration/new-equipment"  element={<NewEquipmentPage />} />
             <Route path="/basic-registration/equipment-hist" element={<EquipmentHistoryPage />} />
-            <Route path="/basic-registration/uncertainty"    element={<PlaceholderPage title="Uncertainty Reg" />} />
+            <Route path="/basic-registration/uncertainty"    element={<UncertaintyRegPage />} />
             <Route path="/basic-registration/scope"          element={
               can(user?.role ?? "staff", "scope:read")
                 ? <ScopeRegistrationPage />
