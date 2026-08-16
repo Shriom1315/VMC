@@ -15,6 +15,8 @@ import CertificateHistoryPage from "../pages/admin/reports/CertificateHistoryPag
 import OutstandingPage from "../pages/admin/reports/OutstandingPage";
 import LedgerPage from "../pages/admin/reports/LedgerPage";
 import GSTReportPage from "../pages/admin/reports/GSTReportPage";
+import TotalQuotationsPage from "../pages/admin/reports/TotalQuotationsPage";
+import TotalPOsPage from "../pages/admin/reports/TotalPOsPage";
 import QuotationPage from "../pages/QuotationPage";
 import PurchaseOrderPage from "../pages/PurchaseOrderPage";
 import MaterialInwardPage from "../pages/MaterialInwardPage";
@@ -23,6 +25,14 @@ import EquipmentHistoryPage from "../pages/admin/EquipmentHistoryPage";
 import NewEquipmentPage from "../pages/admin/NewEquipmentPage";
 import ScopeRegistrationPage from "../pages/admin/ScopeRegistrationPage";
 import UncertaintyRegPage from "../pages/admin/UncertaintyRegPage";
+import RateRegisterPage from "../pages/admin/RateRegisterPage";
+import CustomPORatePage from "../pages/admin/CustomPORatePage";
+import FirmCreationPage from "../pages/admin/FirmCreationPage";
+import InstrumentRepairPage from "../pages/admin/InstrumentRepairPage";
+import ThreadSpecPage from "../pages/admin/ThreadSpecPage";
+import TaperThreadPage from "../pages/admin/TaperThreadPage";
+import ReadingMastersPage from "../pages/admin/ReadingMastersPage";
+import DialTablePage from "../pages/admin/DialTablePage";
 import { useAuth, can } from "../context/AuthContext";
 
 function Breadcrumb() {
@@ -133,24 +143,24 @@ export default function AdminLayout() {
                 ? <ScopeRegistrationPage />
                 : <Navigate to="/unauthorized" replace />
             } />
-            <Route path="/basic-registration/thread-specs"   element={<PlaceholderPage title="Thread / Ring / Plug Spec" />} />
-            <Route path="/basic-registration/taper-thread"   element={<PlaceholderPage title="Taper Thread Reading" />} />
-            <Route path="/basic-registration/reading-masters" element={<PlaceholderPage title="Reading Masters" />} />
-            <Route path="/basic-registration/inst-repair"    element={<PlaceholderPage title="Instrument Repair Master" />} />
-            <Route path="/basic-registration/dial-table"     element={<PlaceholderPage title="Dial Table Master" />} />
+            <Route path="/basic-registration/thread-specs"   element={<ThreadSpecPage />} />
+            <Route path="/basic-registration/taper-thread"   element={<TaperThreadPage />} />
+            <Route path="/basic-registration/reading-masters" element={<ReadingMastersPage />} />
+            <Route path="/basic-registration/inst-repair"    element={<InstrumentRepairPage />} />
+            <Route path="/basic-registration/dial-table"     element={<DialTablePage />} />
             <Route path="/basic-registration/rate"           element={
               can(user?.role ?? "staff", "rate:read")
-                ? <PlaceholderPage title="Rate Register" />
+                ? <RateRegisterPage />
                 : <Navigate to="/unauthorized" replace />
             } />
             <Route path="/basic-registration/custom-po"      element={
               can(user?.role ?? "staff", "rate:read")
-                ? <PlaceholderPage title="Custom PO Rate Master" />
+                ? <CustomPORatePage />
                 : <Navigate to="/unauthorized" replace />
             } />
             <Route path="/basic-registration/firm-creation"  element={
               can(user?.role ?? "staff", "firm:read")
-                ? <PlaceholderPage title="Firm Creation" />
+                ? <FirmCreationPage />
                 : <Navigate to="/unauthorized" replace />
             } />
 
@@ -178,12 +188,12 @@ export default function AdminLayout() {
             {/* Reports */}
             <Route path="/reports/total-quotations" element={
               can(user?.role ?? "staff", "reports:quotations")
-                ? <PlaceholderPage title="Total Quotations" />
+                ? <TotalQuotationsPage />
                 : <Navigate to="/unauthorized" replace />
             } />
             <Route path="/reports/total-pos"        element={
               can(user?.role ?? "staff", "reports:pos")
-                ? <PlaceholderPage title="Total POs" />
+                ? <TotalPOsPage />
                 : <Navigate to="/unauthorized" replace />
             } />
             <Route path="/reports/cert-history"     element={<CertificateHistoryPage />} />

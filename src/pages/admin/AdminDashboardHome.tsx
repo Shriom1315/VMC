@@ -57,22 +57,29 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 function AdminDashboard({ name }: { name: string }) {
   const [counts, setCounts] = useState({ parties: 0, gauges: 0, calibJobs: 0, invoices: 0, receipts: 0, users: 0 });
   const [outstanding, setOutstanding] = useState(0);
+  const [overdueEquipment, setOverdueEquipment] = useState<{ name: string; dueDate: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [p, g, c, inv, rcp, u] = await Promise.all([
+      const today = new Date().toISOString().split("T")[0];
+      const [p, g, c, inv, rcp, u, eq] = await Promise.all([
         supabase.from("parties").select("id", { count: "exact", head: true }),
         supabase.from("gauges").select("id", { count: "exact", head: true }),
         supabase.from("calib_jobs").select("id", { count: "exact", head: true }),
         supabase.from("invoices").select("total, status"),
         supabase.from("receipts").select("amount"),
         supabase.from("app_users").select("id", { count: "exact", head: true }),
+        supabase.from("equipment_history").select("master_equipment_name, calibration_due_dt")
+          .lte("calibration_due_dt", today).order("calibration_due_dt"),
       ]);
       const totalInvoiced = (inv.data ?? []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0);
       const totalReceived = (rcp.data ?? []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0);
       setOutstanding(totalInvoiced - totalReceived);
       setCounts({ parties: p.count ?? 0, gauges: g.count ?? 0, calibJobs: c.count ?? 0, invoices: (inv.data ?? []).length, receipts: (rcp.data ?? []).length, users: u.count ?? 0 });
+      setOverdueEquipment((eq.data ?? []).map((r: any) => ({
+        name: r.master_equipment_name, dueDate: r.calibration_due_dt ?? "",
+      })));
       setLoading(false);
     };
     fetchAll();
@@ -113,6 +120,36 @@ function AdminDashboard({ name }: { name: string }) {
           <MetricCard label="Outstanding Amount" value={loading ? "—" : `₹${outstanding.toLocaleString()}`} color={outstanding > 0 ? "text-red-600" : "text-green-600"} delta={outstanding > 0 ? "Pending collection" : "All collected"} />
         </div>
       </div>
+
+      {/* Equipment overdue alert */}
+      {overdueEquipment.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle size={15} className="text-red-600 shrink-0" />
+            <span className="text-sm font-semibold text-red-800">
+              {overdueEquipment.length} Lab Equipment Past Calibration Due Date
+            </span>
+          </div>
+          <p className="text-xs text-red-700 mb-3">
+            ISO 17025 requires these instruments NOT be used for calibration until recalibrated.
+          </p>
+          <div className="flex flex-col gap-1">
+            {overdueEquipment.slice(0, 5).map((eq, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-red-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                <span className="font-medium">{eq.name}</span>
+                <span className="text-red-500">— due {eq.dueDate}</span>
+              </div>
+            ))}
+            {overdueEquipment.length > 5 && (
+              <p className="text-xs text-red-600 mt-1">
+                +{overdueEquipment.length - 5} more…
+                <Link to="/admin/basic-registration/equipment-hist" className="underline ml-1">View all</Link>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div>

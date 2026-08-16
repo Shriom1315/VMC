@@ -6,7 +6,8 @@ import ExportToolbar, { ColumnDef } from "../components/ExportToolbar";
 import InwardBillForm from "./inward/InwardBillForm";
 import InwardItemForm from "./inward/InwardItemForm";
 import InwardChallan from "./inward/InwardChallan";
-import { InwardBill, InwardItem, InwardParameter, EMPTY_BILL, EMPTY_ITEM } from "./inward/types";
+import CreateJobModal from "./inward/CreateJobModal";
+import { InwardBill, InwardItem, EMPTY_BILL, EMPTY_ITEM } from "./inward/types";
 
 // ─── View modes ───────────────────────────────────────────────
 type View = "list" | "items" | "edit_item" | "challan";
@@ -62,8 +63,10 @@ export default function MaterialInwardPage() {
   // ── Master data ──
   const [partyNames,     setPartyNames]     = useState<string[]>([]);
   const [gaugeNames,     setGaugeNames]     = useState<string[]>([]);
-  // map of party name → address for challan
   const [partyAddressMap, setPartyAddressMap] = useState<Record<string, string>>({});
+
+  // ── Job modal ──
+  const [jobModalItem,   setJobModalItem]   = useState<InwardItem | null>(null);
 
   const ROWS = 10;
 
@@ -304,6 +307,16 @@ export default function MaterialInwardPage() {
   if (view === "items" || view === "edit_item") {
     return (
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="w-full flex flex-col gap-6">
+
+        {/* Job Card modal */}
+        {jobModalItem && activeBill && (
+          <CreateJobModal
+            bill={activeBill}
+            item={jobModalItem}
+            onClose={() => setJobModalItem(null)}
+            onSaved={() => { setJobModalItem(null); }}
+          />
+        )}
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           <button onClick={() => { setView("list"); setActiveBillId(null); }} className="hover:text-brand-orange transition-colors">Material Inward</button>
@@ -364,7 +377,13 @@ export default function MaterialInwardPage() {
                     {itemVisibleCols.includes("manuSrNo")         && <td className="px-4 py-3 font-mono text-text-secondary border-r border-border">{it.manuSrNo}</td>}
                     {itemVisibleCols.includes("process")          && <td className="px-4 py-3 text-text-secondary border-r border-border">{it.process}</td>}
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1 w-20">
+                      <div className="flex flex-col gap-1 w-24">
+                        <button
+                          onClick={() => setJobModalItem(it)}
+                          className="bg-brand-orange text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-orange-700 transition-colors text-center"
+                        >
+                          Job Card
+                        </button>
                         <button className="bg-blue-500 text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-blue-600 transition-colors text-center">Tag</button>
                         <button className="bg-blue-600 text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-blue-700 transition-colors text-center">Datasheet</button>
                         <button onClick={() => handleItemEdit(it)} className="bg-gray-600 text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-gray-700 transition-colors text-center">Edit</button>
