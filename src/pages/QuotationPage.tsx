@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Printer, FileDown, Plus, Trash2, Save, Eye, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -57,6 +57,19 @@ export default function QuotationPage() {
   const removeItem = (id: number) => {
     if (items.length > 1) setItems(items.filter(i => i.id !== id));
   };
+
+  // ── Refs for auto-focus when a new row is added via Tab ──
+  const firstFieldRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
+
+  const addItemAndFocus = useCallback(() => {
+    const newId = Date.now();
+    setItems(prev => [...prev, { id: newId, desc: "", identification: "", size: "", hsn: "", repair: 0, calib: 0, qty: 1 }]);
+    // Focus the first field of the new row after React renders it
+    setTimeout(() => {
+      const el = firstFieldRefs.current[newId];
+      if (el) { el.focus(); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    }, 30);
+  }, []);
 
   const totalQty = items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
   const baseTotal = items.reduce((sum, item) => sum + (Number(item.repair) + Number(item.calib)) * Number(item.qty), 0);
@@ -638,7 +651,13 @@ export default function QuotationPage() {
                       </button>
                     </td>
                     <td className="p-0 border-r border-border">
-                      <textarea value={item.desc} onChange={e => updateItem(item.id, "desc", e.target.value)} className="w-full px-3 py-2 outline-none border-none resize-none bg-transparent text-gray-900 text-xs" rows={2} />
+                      <textarea
+                        ref={el => { firstFieldRefs.current[item.id] = el; }}
+                        value={item.desc}
+                        onChange={e => updateItem(item.id, "desc", e.target.value)}
+                        className="w-full px-3 py-2 outline-none border-none resize-none bg-transparent text-gray-900 text-xs"
+                        rows={2}
+                      />
                     </td>
                     <td className="p-0 border-r border-border">
                       <textarea value={item.identification} onChange={e => updateItem(item.id, "identification", e.target.value)} className="w-full px-3 py-2 outline-none border-none resize-none bg-transparent text-center text-gray-900 text-xs" rows={2} />
@@ -656,14 +675,37 @@ export default function QuotationPage() {
                       <input type="number" value={item.calib} onChange={e => updateItem(item.id, "calib", parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 outline-none border-none bg-transparent text-right text-gray-900 text-xs font-mono" />
                     </td>
                     <td className="p-0 border-r border-border">
-                      <input type="number" value={item.qty} onChange={e => updateItem(item.id, "qty", parseInt(e.target.value) || 0)} className="w-full px-3 py-2 outline-none border-none bg-transparent text-center text-gray-900 text-xs font-mono" />
+                      <input
+                        type="number"
+                        value={item.qty}
+                        onChange={e => updateItem(item.id, "qty", parseInt(e.target.value) || 0)}
+                        onKeyDown={e => {
+                          // Tab on the last field → add a new row and focus it
+                          if (e.key === "Tab" && !e.shiftKey && idx === items.length - 1) {
+                            e.preventDefault();
+                            addItemAndFocus();
+                          }
+                        }}
+                        className="w-full px-3 py-2 outline-none border-none bg-transparent text-center text-gray-900 text-xs font-mono"
+                      />
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-gray-900 text-xs font-mono">
                       {((Number(item.repair) + Number(item.calib)) * Number(item.qty)).toFixed(2)}
                     </td>
                   </tr>
                 ))}
-                {[...Array(Math.max(0, 8 - items.length))].map((_, i) => (
+                {/* ── Add Row button as a table row — always visible, no scrolling needed ── */}
+                <tr className="border-b border-border">
+                  <td colSpan={9} className="px-3 py-2">
+                    <button
+                      onClick={addItemAndFocus}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-orange hover:underline"
+                    >
+                      <Plus size={13} /> Add Row
+                    </button>
+                  </td>
+                </tr>
+                {[...Array(Math.max(0, 7 - items.length))].map((_, i) => (
                   <tr key={`empty-${i}`} className="border-b border-border h-8">
                     {[...Array(9)].map((__, j) => (
                       <td key={j} className={j < 8 ? "border-r border-border" : ""} />
@@ -713,10 +755,7 @@ export default function QuotationPage() {
           </div>
 
           {/* Signature row */}
-          <div className="px-4 py-4 flex justify-between items-end border-t border-border">
-            <button onClick={addItem} className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-orange hover:underline">
-              <Plus size={13} /> Add Row
-            </button>
+          <div className="px-4 py-4 flex justify-end items-end border-t border-border">
             <div className="text-right ml-auto">
               <p className="text-xs text-text-secondary mb-8">Yours Faithfully</p>
               <p className="text-xs font-semibold text-text-primary border-t border-border pt-1">VIKRAMADITYA ENTERPRISES</p>

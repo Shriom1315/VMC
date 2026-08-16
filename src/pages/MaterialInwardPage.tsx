@@ -146,9 +146,17 @@ export default function MaterialInwardPage() {
       designation: billForm.designation, customer_auth_person: billForm.customerAuthPerson,
       contact: billForm.contact, billing_firm: billForm.billingFirm,
     };
-    const { error } = await supabase.from("inward_bills").insert(payload);
+    const { data, error } = await supabase.from("inward_bills").insert(payload).select("id").single();
     if (error) { setBillError(error.message); return; }
-    setBillForm(EMPTY_BILL); setShowForm(false); fetchBills();
+    // ── Auto-navigate to items view for the new bill ──
+    const newBillId = data?.id as number;
+    setBillForm(EMPTY_BILL); setShowForm(false);
+    await fetchBills();
+    setActiveBillId(newBillId);
+    setItemForm(EMPTY_ITEM);
+    setEditingItemId(null);
+    await fetchItems(newBillId);
+    setView("items");
   };
 
   const handleBillUpdate = async () => {

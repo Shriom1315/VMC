@@ -33,6 +33,7 @@ import ThreadSpecPage from "../pages/admin/ThreadSpecPage";
 import TaperThreadPage from "../pages/admin/TaperThreadPage";
 import ReadingMastersPage from "../pages/admin/ReadingMastersPage";
 import DialTablePage from "../pages/admin/DialTablePage";
+import EmployeesPage from "../pages/admin/EmployeesPage";
 import { useAuth, can } from "../context/AuthContext";
 
 function Breadcrumb() {
@@ -65,26 +66,46 @@ export default function AdminLayout() {
 
   return (
     <div className="h-screen print:h-auto flex font-sans overflow-hidden print:overflow-visible bg-surface-subtle text-text-primary">
-      {/* Sidebar — hidden when printing */}
+
+      {/* ── Sidebar — fixed overlay on mobile, inline on desktop ── */}
       <AnimatePresence>
         {sidebarOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 256, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="print:hidden h-full bg-white border-r border-border flex flex-col shrink-0 overflow-y-auto z-20"
-          >
-            <div className="px-4 py-4 border-b border-border flex items-center justify-between">
-              <Link to="/" className="text-sm font-semibold text-text-primary hover:text-brand-orange transition-colors">
-                Vikramaditya
-              </Link>
-              <span className="text-[10px] font-medium text-text-muted bg-surface-muted px-2 py-0.5 rounded">
-                Admin
-              </span>
-            </div>
-            <AdminSidebar />
-          </motion.div>
+          <>
+            {/* Backdrop — only on mobile */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="print:hidden fixed inset-0 bg-black/40 z-30 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+
+            {/* Sidebar panel */}
+            <motion.div
+              key="sidebar"
+              initial={{ x: -256, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -256, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="print:hidden fixed md:relative inset-y-0 left-0 w-64 bg-white border-r border-border flex flex-col shrink-0 overflow-y-auto z-40"
+            >
+              <div className="px-4 py-4 border-b border-border flex items-center justify-between">
+                <Link to="/" className="text-sm font-semibold text-text-primary hover:text-brand-orange transition-colors">
+                  Vikramaditya
+                </Link>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="md:hidden text-text-muted hover:text-text-primary transition-colors p-1 rounded hover:bg-surface-muted"
+                  aria-label="Close sidebar"
+                >
+                  ✕
+                </button>
+              </div>
+              <AdminSidebar onNavigate={() => setSidebarOpen(false)} />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -96,6 +117,7 @@ export default function AdminLayout() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-text-secondary hover:text-text-primary transition-colors p-1 rounded hover:bg-surface-muted"
+              aria-label="Toggle sidebar"
             >
               <Menu size={18} />
             </button>
@@ -163,6 +185,7 @@ export default function AdminLayout() {
                 ? <FirmCreationPage />
                 : <Navigate to="/unauthorized" replace />
             } />
+            <Route path="/basic-registration/employees"      element={<EmployeesPage />} />
 
             {/* Daily Transactions */}
             <Route path="/transactions/quotation"      element={

@@ -127,13 +127,31 @@ export default function GaugeInfoPage() {
       certificate:        certCode,
       calibration:        calibrationMethod,
     };
-    if (editingId !== null) {
-      const { error: err } = await supabase.from("gauges").update(payload).eq("id", editingId);
-      if (err) { setError(err.message); return; }
-    } else {
-      const { error: err } = await supabase.from("gauges").insert(payload);
-      if (err) { setError(err.message); return; }
-    }
+    // id is omitted → DB serial sequence auto-generates it
+    const { error: err } = await supabase.from("gauges").insert(payload);
+    if (err) { setError(err.message); return; }
+    resetForm();
+    fetchGauges();
+  };
+
+  const handleUpdate = async () => {
+    if (editingId === null) return;
+    const payload = {
+      gauge_name:         gaugeName,
+      is_no:              isNo,
+      non_nabl_no:        nonNablNo,
+      nabl_no:            nablNo,
+      raw_datasheet_frmt: rawDatasheetFrmt,
+      cert_code:          certCode,
+      calibration_method: calibrationMethod,
+      gauge_type:         gaugeType,
+      env_conditions:     envConditions,
+      datasheet:          rawDatasheetFrmt,
+      certificate:        certCode,
+      calibration:        calibrationMethod,
+    };
+    const { error: err } = await supabase.from("gauges").update(payload).eq("id", editingId);
+    if (err) { setError(err.message); return; }
     resetForm();
     fetchGauges();
   };
@@ -260,7 +278,7 @@ export default function GaugeInfoPage() {
             className="bg-brand-orange text-white text-xs font-medium px-5 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Save
           </button>
-          <button onClick={handleSave} disabled={editingId === null}
+          <button onClick={handleUpdate} disabled={editingId === null}
             className="border border-border text-text-primary text-xs font-medium px-5 py-2 rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Update
           </button>

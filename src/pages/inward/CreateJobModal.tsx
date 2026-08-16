@@ -39,6 +39,30 @@ export default function CreateJobModal({ bill, item, onClose, onSaved }: Props) 
     if (!labId.trim()) { setError("Lab ID is required."); return; }
     setSaving(true); setError(null);
 
+    // ── Snapshot the current active scope for this gauge type ──
+    let scopeSnapshot = {};
+    const { data: scopeData } = await supabase
+      .from("scopes")
+      .select("*")
+      .eq("gauge_type", item.gaugeType)
+      .eq("is_active", true)
+      .order("effective_from", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (scopeData) {
+      scopeSnapshot = {
+        gauge_type:              scopeData.gauge_type,
+        range_from:              scopeData.range_from,
+        range_to:                scopeData.range_to,
+        least_count:             scopeData.least_count,
+        uncertainty_measurement: scopeData.uncertainty_measurement,
+        confidance_level:        scopeData.confidance_level,
+        calib_location:          scopeData.calib_location,
+        effective_from:          scopeData.effective_from,
+        snapshotted_at:          new Date().toISOString(),
+      };
+    }
+
     const payload = {
       lab_id:             labId,
       name:               item.gaugeName,
@@ -70,6 +94,8 @@ export default function CreateJobModal({ bill, item, onClose, onSaved }: Props) 
       calibrated_by:      calibratedBy,
       approved_by:        approvedBy,
       status:             "pending",
+      scope_snapshot:     scopeSnapshot,
+      parameters:         item.parameters,
     };
 
     const { error: err } = await supabase.from("calib_jobs").insert(payload);

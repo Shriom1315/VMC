@@ -20,6 +20,8 @@ interface Scope {
   remark: string;
   equipmentUseForCali: string[];
   masterEquipmentList: string;
+  effectiveFrom: string;
+  isActive: boolean;
 }
 
 interface EquipmentItem {
@@ -93,8 +95,8 @@ export default function ScopeRegistrationPage() {
   const [selectedEquipment,       setSelectedEquipment]       = useState<number[]>([]);
   const [masterEquipmentList,     setMasterEquipmentList]     = useState("");
   const [equipmentSearchQuery,    setEquipmentSearchQuery]    = useState("");
-
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  const [effectiveFrom,           setEffectiveFrom]           = useState(new Date().toISOString().split("T")[0]);
+  const [isActive,                setIsActive]                = useState(true);
   const fetchScopes = async () => {
     setLoading(true);
     setError(null);
@@ -120,6 +122,8 @@ export default function ScopeRegistrationPage() {
           remark:                 r.remark ?? "",
           equipmentUseForCali:    Array.isArray(r.equipment_use_for_cali) ? r.equipment_use_for_cali : [],
           masterEquipmentList:    r.master_equipment_list ?? "",
+          effectiveFrom:          r.effective_from ?? "",
+          isActive:               r.is_active ?? true,
         }))
       );
     }
@@ -133,7 +137,8 @@ export default function ScopeRegistrationPage() {
     setGaugeType("(ILC) Lever Dial.."); setLeastCount(""); setRangeFrom(""); setRangeTo("");
     setValidDate(""); setUncertaintyMeasurement(""); setConfidanceLevel("");
     setCalibLocation("Site Facility"); setRemark(""); setSelectedEquipment([]);
-    setMasterEquipmentList(""); setEditingId(null);
+    setMasterEquipmentList(""); setEffectiveFrom(new Date().toISOString().split("T")[0]);
+    setIsActive(true); setEditingId(null);
   };
 
   const buildPayload = () => ({
@@ -150,7 +155,9 @@ export default function ScopeRegistrationPage() {
       const eq = SAMPLE_EQUIPMENT.find(e => e.id === id);
       return `${eq?.name}||${eq?.code}||${eq?.range}||${eq?.uncertaintyValue}`;
     }),
-    master_equipment_list: masterEquipmentList,
+    master_equipment_list:    masterEquipmentList,
+    effective_from:           effectiveFrom || null,
+    is_active:                isActive,
   });
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
@@ -182,6 +189,8 @@ export default function ScopeRegistrationPage() {
     setUncertaintyMeasurement(s.uncertaintyMeasurement); setConfidanceLevel(s.confidanceLevel);
     setCalibLocation(s.calibLocation); setRemark(s.remark);
     setMasterEquipmentList(s.masterEquipmentList);
+    setEffectiveFrom(s.effectiveFrom || new Date().toISOString().split("T")[0]);
+    setIsActive(s.isActive);
     const eqIds = s.equipmentUseForCali.map(eq => {
       const code = eq.split("||")[1];
       return SAMPLE_EQUIPMENT.find(e => e.code === code)?.id ?? 0;
@@ -352,6 +361,18 @@ export default function ScopeRegistrationPage() {
           <div className="md:col-span-2">
             <label className={labelCls}>Master Equipment List</label>
             <input value={masterEquipmentList} onChange={e => setMasterEquipmentList(e.target.value)} className={fieldCls} />
+          </div>
+
+          {/* Versioning fields */}
+          <div>
+            <label className={labelCls}>Effective From <span className="text-xs text-text-muted font-normal">(scope version date)</span></label>
+            <input type="date" value={effectiveFrom} onChange={e => setEffectiveFrom(e.target.value)} className={fieldCls} />
+          </div>
+          <div className="flex items-center gap-3 mt-5">
+            <input type="checkbox" id="scope-active" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="w-4 h-4 accent-brand-orange cursor-pointer" />
+            <label htmlFor="scope-active" className="text-sm text-text-primary cursor-pointer">
+              Active <span className="text-xs text-text-muted font-normal">(only active scopes are used for new certificates)</span>
+            </label>
           </div>
         </div>
 
