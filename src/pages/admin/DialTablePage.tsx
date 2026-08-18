@@ -22,7 +22,7 @@ const GAUGE_TYPES = [
   "Dial Indicator", "Digital Dial Gauge", "Bore Gauge", "Depth Indicator",
   "Height Gauge", "Test Indicator", "Lever Dial Indicator",
 ];
-const UNITS = ["mm", "μm", "inch", "0.001mm", "0.01mm", "0.001inch"];
+const UNITS = ["mm", "μm", "inch"];
 
 const COLUMNS: ColumnDef[] = [
   { key: "gaugeType",     label: "Gauge Type"     },
