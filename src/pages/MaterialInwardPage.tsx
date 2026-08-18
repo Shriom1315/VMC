@@ -42,7 +42,6 @@ export default function MaterialInwardPage() {
 
   // ── Bills state ──
   const [bills,          setBills]          = useState<InwardBill[]>([]);
-  const [billForm,       setBillForm]       = useState<Omit<InwardBill,"id">>(EMPTY_BILL);
   const [editingBillId,  setEditingBillId]  = useState<number | null>(null);
   const [billSearch,     setBillSearch]     = useState("");
   const [billPage,       setBillPage]       = useState(1);
@@ -131,26 +130,25 @@ export default function MaterialInwardPage() {
   };
 
   // ── Bill CRUD ──
-  const handleBillSave = async () => {
-    if (!billForm.clientName) return;
+  const handleBillSave = async (data: Omit<InwardBill, "id">) => {
+    if (!data.clientName) return;
     const payload = {
-      client_name: billForm.clientName, billing_to: billForm.billingTo,
-      delivery_to: billForm.deliveryTo, other_access_to: billForm.otherAccessTo,
-      client_dc_no: billForm.clientDcNo, client_dc_date: billForm.clientDcDate || null,
-      through: billForm.through, inward_date: billForm.inwardDate || null,
-      receive_date: billForm.receiveDate || null, commit_date: billForm.commitDate || null,
-      calib_method: billForm.calibMethod, method_of_reporting: billForm.methodOfReporting,
-      mode_of_collection: billForm.modeOfCollection, mode_of_dispatch: billForm.modeOfDispatch,
-      compliance: billForm.compliance, decision_rule: billForm.decisionRule,
-      any_specific_req: billForm.anySpecificReq, lab_authorized_person: billForm.labAuthorizedPerson,
-      designation: billForm.designation, customer_auth_person: billForm.customerAuthPerson,
-      contact: billForm.contact, billing_firm: billForm.billingFirm,
+      client_name: data.clientName, billing_to: data.billingTo,
+      delivery_to: data.deliveryTo, other_access_to: data.otherAccessTo,
+      client_dc_no: data.clientDcNo, client_dc_date: data.clientDcDate || null,
+      through: data.through, inward_date: data.inwardDate || null,
+      receive_date: data.receiveDate || null, commit_date: data.commitDate || null,
+      calib_method: data.calibMethod, method_of_reporting: data.methodOfReporting,
+      mode_of_collection: data.modeOfCollection, mode_of_dispatch: data.modeOfDispatch,
+      compliance: data.compliance, decision_rule: data.decisionRule,
+      any_specific_req: data.anySpecificReq, lab_authorized_person: data.labAuthorizedPerson,
+      designation: data.designation, customer_auth_person: data.customerAuthPerson,
+      contact: data.contact, billing_firm: data.billingFirm,
     };
-    const { data, error } = await supabase.from("inward_bills").insert(payload).select("id").single();
+    const { data: row, error } = await supabase.from("inward_bills").insert(payload).select("id").single();
     if (error) { setBillError(error.message); return; }
-    // ── Auto-navigate to items view for the new bill ──
-    const newBillId = data?.id as number;
-    setBillForm(EMPTY_BILL); setShowForm(false);
+    const newBillId = row?.id as number;
+    setShowForm(false);
     await fetchBills();
     setActiveBillId(newBillId);
     setItemForm(EMPTY_ITEM);
@@ -159,38 +157,42 @@ export default function MaterialInwardPage() {
     setView("items");
   };
 
-  const handleBillUpdate = async () => {
+  const handleBillUpdate = async (data: Omit<InwardBill, "id">) => {
     if (editingBillId === null) return;
     const payload = {
-      client_name: billForm.clientName, billing_to: billForm.billingTo,
-      delivery_to: billForm.deliveryTo, other_access_to: billForm.otherAccessTo,
-      client_dc_no: billForm.clientDcNo, client_dc_date: billForm.clientDcDate || null,
-      through: billForm.through, inward_date: billForm.inwardDate || null,
-      receive_date: billForm.receiveDate || null, commit_date: billForm.commitDate || null,
-      calib_method: billForm.calibMethod, method_of_reporting: billForm.methodOfReporting,
-      mode_of_collection: billForm.modeOfCollection, mode_of_dispatch: billForm.modeOfDispatch,
-      compliance: billForm.compliance, decision_rule: billForm.decisionRule,
-      any_specific_req: billForm.anySpecificReq, lab_authorized_person: billForm.labAuthorizedPerson,
-      designation: billForm.designation, customer_auth_person: billForm.customerAuthPerson,
-      contact: billForm.contact, billing_firm: billForm.billingFirm,
+      client_name: data.clientName, billing_to: data.billingTo,
+      delivery_to: data.deliveryTo, other_access_to: data.otherAccessTo,
+      client_dc_no: data.clientDcNo, client_dc_date: data.clientDcDate || null,
+      through: data.through, inward_date: data.inwardDate || null,
+      receive_date: data.receiveDate || null, commit_date: data.commitDate || null,
+      calib_method: data.calibMethod, method_of_reporting: data.methodOfReporting,
+      mode_of_collection: data.modeOfCollection, mode_of_dispatch: data.modeOfDispatch,
+      compliance: data.compliance, decision_rule: data.decisionRule,
+      any_specific_req: data.anySpecificReq, lab_authorized_person: data.labAuthorizedPerson,
+      designation: data.designation, customer_auth_person: data.customerAuthPerson,
+      contact: data.contact, billing_firm: data.billingFirm,
     };
     const { error } = await supabase.from("inward_bills").update(payload).eq("id", editingBillId);
     if (error) { setBillError(error.message); return; }
-    setBillForm(EMPTY_BILL); setEditingBillId(null); setShowForm(false); fetchBills();
+    setEditingBillId(null); setShowForm(false); fetchBills();
   };
 
   const handleBillDelete = async () => {
     if (editingBillId === null) return;
     const { error } = await supabase.from("inward_bills").delete().eq("id", editingBillId);
     if (error) { setBillError(error.message); return; }
-    setBillForm(EMPTY_BILL); setEditingBillId(null); setShowForm(false); fetchBills();
+    setEditingBillId(null); setShowForm(false); fetchBills();
   };
 
   const handleBillEdit = (bill: InwardBill) => {
     setEditingBillId(bill.id);
-    setBillForm({ clientName: bill.clientName, billingTo: bill.billingTo, deliveryTo: bill.deliveryTo, otherAccessTo: bill.otherAccessTo, clientDcNo: bill.clientDcNo, clientDcDate: bill.clientDcDate, through: bill.through, inwardDate: bill.inwardDate, receiveDate: bill.receiveDate, commitDate: bill.commitDate, calibMethod: bill.calibMethod, methodOfReporting: bill.methodOfReporting, modeOfCollection: bill.modeOfCollection, modeOfDispatch: bill.modeOfDispatch, compliance: bill.compliance, decisionRule: bill.decisionRule, anySpecificReq: bill.anySpecificReq, labAuthorizedPerson: bill.labAuthorizedPerson, designation: bill.designation, customerAuthPerson: bill.customerAuthPerson, contact: bill.contact, billingFirm: bill.billingFirm });
     setShowForm(true);
   };
+
+  // The initial data for the bill form — switches between EMPTY and the bill being edited
+  const billFormInitial = editingBillId !== null
+    ? (bills.find(b => b.id === editingBillId) ?? EMPTY_BILL)
+    : EMPTY_BILL;
 
   // ── Item CRUD ──
   const handleItemSave = async () => {
@@ -428,7 +430,7 @@ export default function MaterialInwardPage() {
           <h1 className="text-lg font-semibold text-text-primary">Material Inward</h1>
           <p className="text-xs text-text-secondary mt-0.5">Inward Bill / Challan Master</p>
         </div>
-        <button onClick={() => { setBillForm(EMPTY_BILL); setEditingBillId(null); setShowForm(v => !v); }}
+        <button onClick={() => { setEditingBillId(null); setShowForm(v => !v); }}
           className="inline-flex items-center gap-1.5 bg-brand-orange text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
           <Plus size={13} /> New Inward
         </button>
@@ -439,14 +441,13 @@ export default function MaterialInwardPage() {
       {/* Inward Bill Form */}
       {showForm && (
         <InwardBillForm
-          form={billForm}
+          initial={billFormInitial}
           editingId={editingBillId}
           partyNames={partyNames}
-          onChange={(field, value) => setBillForm(prev => ({ ...prev, [field]: value }))}
           onSave={handleBillSave}
           onUpdate={handleBillUpdate}
           onDelete={handleBillDelete}
-          onCancel={() => { setShowForm(false); setBillForm(EMPTY_BILL); setEditingBillId(null); }}
+          onCancel={() => { setShowForm(false); setEditingBillId(null); }}
         />
       )}
 
