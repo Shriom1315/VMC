@@ -95,13 +95,6 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
 
   const isAutoCalc = form.method === "Tolerance Method" || form.method === "Grade Method";
 
-  const Sel = ({ label, field, options }: { label: string; field: keyof Omit<InwardItem,"id"|"inwardBillId">; options: string[] }) => (
-    <div>
-      <label className={l}>{label}</label>
-      <ComboSelect value={form[field] as string} onChange={v => onChange(field, v)} options={options} />
-    </div>
-  );
-
   const renderCalcInfoBar = () => {
     if (!calcInfo) return null;
     const isSnap = calcInfo.kind === "snap";
@@ -246,28 +239,42 @@ export default function InwardItemForm({ form, editingItemId, gaugeNames, onChan
           <label className={l}>Gauge Name</label>
           <ComboSelect value={form.gaugeName} onChange={v => onChange("gaugeName", v)} options={gaugeNames} placeholder="Select or type gauge name..." />
         </div>
-        <Sel label="Class" field="class" options={["No Type","Class A","Class B","Class C","Class X"]} />
-        <Sel
-          label="Gauge Type"
-          field="gaugeType"
-          options={[
+        <div>
+          <label className={l}>Class</label>
+          <ComboSelect value={form.class} onChange={v => onChange("class", v)} options={["No Type","Class A","Class B","Class C","Class X"]} />
+        </div>
+        <div>
+          <label className={l}>Gauge Type</label>
+          <ComboSelect value={form.gaugeType} onChange={v => onChange("gaugeType", v)} options={[
             "OD Limit Gauge","ID Limit Gauge","Plain Plug Gauge","Plain Ring Gauge",
             "Thread Plug Gauge","Thread Ring Gauge","Taper Plug Gauge","Taper Ring Gauge",
             "Fixed Snap Gauge","Go,No-go Ring gauge",
             "Dial Indicator","Vernier Caliper","Micrometer","Height Gauge",
             "Depth Micrometer","Bore Gauge","Comparator Stand","Angle Plate","V Block",
             "Master Ring","Digital Dial Gauge","External Micrometer","Fixe Range Gauge",
-          ]}
-        />
+          ]} />
+        </div>
         <div />
         <div><label className={l}>Identification No.</label><input value={form.identificationNo} onChange={e => onChange("identificationNo", e.target.value)} className={f} /></div>
         <div><label className={l}>Calibration Frequency</label><input value={form.calibFrequency} onChange={e => onChange("calibFrequency", e.target.value)} className={f} /></div>
         <div><label className={l}>Make</label><input value={form.make} onChange={e => onChange("make", e.target.value)} className={f} /></div>
         <div><label className={l}>Manufacturing Sr No.</label><input value={form.manuSrNo} onChange={e => onChange("manuSrNo", e.target.value)} className={f} /></div>
-        <Sel label="Process" field="process" options={["Calibration","Repair","Repair & Calibration"]} />
-        <Sel label="Unit" field="unit" options={["mm","inch","degree","bar","N.m","kg","N","μm"]} />
-        <Sel label="Calibration Location" field="calibLocation" options={["Permanent Facility","On-Site","Customer Premises"]} />
-        <Sel label="Calibration to be done under" field="calibUnder" options={["NABL","Non-NABL","ILC"]} />
+        <div>
+          <label className={l}>Process</label>
+          <ComboSelect value={form.process} onChange={v => onChange("process", v)} options={["Calibration","Repair","Repair & Calibration"]} />
+        </div>
+        <div>
+          <label className={l}>Unit</label>
+          <ComboSelect value={form.unit} onChange={v => onChange("unit", v)} options={["mm","inch","degree","bar","N.m","kg","N","μm"]} />
+        </div>
+        <div>
+          <label className={l}>Calibration Location</label>
+          <ComboSelect value={form.calibLocation} onChange={v => onChange("calibLocation", v)} options={["Permanent Facility","On-Site","Customer Premises"]} />
+        </div>
+        <div>
+          <label className={l}>Calibration to be done under</label>
+          <ComboSelect value={form.calibUnder} onChange={v => onChange("calibUnder", v)} options={["NABL","Non-NABL","ILC"]} />
+        </div>
         <div className="md:col-span-2">
           <label className={l}>Gauge Condition</label>
           <input value={form.gaugeCondition} onChange={e => onChange("gaugeCondition", e.target.value)} className={f} placeholder="e.g. Visually Ok" />
