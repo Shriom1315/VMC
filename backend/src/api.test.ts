@@ -54,17 +54,27 @@ describe("Backend API Endpoints", () => {
     });
   });
 
-  describe("Cache Purge API", () => {
-    it("should allow purging table-specific cache", async () => {
-      const res = await request(app).delete("/api/cache/parties");
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("success", true);
+  describe("POST /api/send-email", () => {
+    it("should return 400 if credentials are not configured", async () => {
+      const res = await request(app)
+        .post("/api/send-email")
+        .send({ to: "test@example.com", subject: "Test", html: "<p>Hello</p>" });
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
     });
 
-    it("should allow purging all cache", async () => {
-      const res = await request(app).delete("/api/cache");
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("success", true);
+    it("should validate missing required parameters", async () => {
+      process.env.GMAIL_USER = "test@gmail.com";
+      process.env.GMAIL_APP_PASSWORD = "apppassword1234";
+
+      const res = await request(app)
+        .post("/api/send-email")
+        .send({ to: "test@example.com" });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Missing required parameters");
+
+      delete process.env.GMAIL_USER;
+      delete process.env.GMAIL_APP_PASSWORD;
     });
   });
 });

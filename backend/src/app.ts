@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -74,6 +75,54 @@ app.delete("/api/cache/:table?", async (req, res) => {
   } else {
     await invalidateCache("vmc:cache:*");
     res.json({ success: true, message: "All table cache cleared" });
+  }
+});
+
+// Email delivery endpoint via Gmail SMTP
+app.post("/api/send-email", async (req, res) => {
+  const gmailUser = (process.env.GMAIL_USER || "").trim();
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim().replace(/\s+/g, "");
+
+  if (!gmailUser || !gmailPass || gmailUser.includes("your-email")) {
+    return res.status(400).json({
+      error: "GMAIL_USER and GMAIL_APP_PASSWORD are not configured in environment variables!",
+    });
+  }
+
+  try {
+    const { to, subject, html, attachments } = req.body || {};
+    if (!to || !subject || !html) {
+      return res.status(400).json({ error: "Missing required parameters (to, subject, html)" });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    });
+
+    const mailOptions: any = {
+      from: `"Vikramaditya Metrology" <${gmailUser}>`,
+      to,
+      subject,
+      html,
+    };
+
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      mailOptions.attachments = attachments.map((att: any) => ({
+        filename: att.filename,
+        content: Buffer.from(att.content, "base64"),
+        contentType: att.type || "application/pdf",
+      }));
+    }
+
+    await transporter.sendMail(mailOptions);
+    return res.status(200).json({ success: true, message: `Email sent to ${to}` });
+  } catch (err: any) {
+    console.error("Backend Gmail SMTP Send Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to send email via backend SMTP" });
   }
 });
 
