@@ -7,7 +7,7 @@
     "start": "tsx src/index.ts",
     "start:prod": "node dist/src/index.js",
     "build": "tsc",
-    "test": "vitest run",
+    "test": "vitest run --reporter=verbose",
     "db:setup": "tsx scripts/setup.ts",
     "db:seed": "tsx scripts/seed.ts"
   },

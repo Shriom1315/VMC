@@ -27,6 +27,9 @@ COPY backend ./backend
 RUN npm run build:frontend
 RUN npm run build:backend
 
+# Run automated tests before containerizing
+RUN npm test
+
 # Prune devDependencies to keep only production dependencies
 RUN npm prune --omit=dev
 
