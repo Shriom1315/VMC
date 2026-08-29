@@ -1,10 +1,9 @@
 const nodemailer = require("nodemailer");
 
 exports.handler = async (event, context) => {
-  // CORS headers
   const headers = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -29,13 +28,17 @@ exports.handler = async (event, context) => {
       statusCode: 400,
       headers,
       body: JSON.stringify({
-        error: "GMAIL_USER and GMAIL_APP_PASSWORD environment variables are not configured in your Netlify site settings!",
+        error: "GMAIL_USER and GMAIL_APP_PASSWORD are not configured in Netlify Site configuration -> Environment variables!",
       }),
     };
   }
 
   try {
-    const body = JSON.parse(event.body || "{}");
+    let rawBody = event.body || "{}";
+    if (event.isBase64Encoded) {
+      rawBody = Buffer.from(rawBody, "base64").toString("utf-8");
+    }
+    const body = JSON.parse(rawBody);
     const { to, subject, html, attachments } = body;
 
     if (!to || !subject || !html) {

@@ -32,9 +32,9 @@ export async function sendEmail(opts: EmailOptions): Promise<void> {
     }];
   }
 
-  // 1. Try Gmail SMTP endpoint (/api/send-email or Netlify function)
+  // 1. Try Gmail SMTP endpoints (/api/send-email or Netlify function)
   const endpoints = ["/api/send-email", "/.netlify/functions/send-email"];
-  let lastError = "";
+  let lastErrorMessage = "";
 
   for (const endpoint of endpoints) {
     try {
@@ -50,7 +50,7 @@ export async function sendEmail(opts: EmailOptions): Promise<void> {
       } else {
         const errJson = await res.json().catch(() => null);
         if (errJson?.error) {
-          lastError = errJson.error;
+          lastErrorMessage = errJson.error;
           throw new Error(errJson.error);
         }
       }
@@ -61,26 +61,38 @@ export async function sendEmail(opts: EmailOptions): Promise<void> {
     }
   }
 
+  if (lastErrorMessage) {
+    throw new Error(lastErrorMessage);
+  }
+
   // 2. Fallback to Supabase Edge Function
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
 
-  const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${token}`,
-        "apikey":        import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify(body),
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": token ? `Bearer ${token}` : "",
+          "apikey":        import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || json?.error) {
+      throw new Error(json?.error ?? "Failed to send email");
     }
-  );
-
-  const json = await res.json();
-  if (!res.ok || json.error) {
-    throw new Error(json.error ?? "Failed to send email");
+  } catch (err: any) {
+    throw new Error(
+      lastErrorMessage ||
+      err.message ||
+      "Failed to send email. Please ensure GMAIL_USER and GMAIL_APP_PASSWORD are added under Netlify Site configuration -> Environment variables."
+    );
   }
 }
 
