@@ -14,10 +14,14 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-vmc_db}
       - POSTGRES_USER=${POSTGRES_USER:-vmc_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vmc_password}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_TTL=${REDIS_TTL:-300}
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-}
     depends_on:
       - db
+      - redis
     restart: unless-stopped
 
   db:
@@ -34,5 +38,15 @@ services:
       - ./backend/scripts/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: vmc-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  redis_data:

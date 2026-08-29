@@ -20,13 +20,20 @@ export const realSupabase = createClient(supabaseUrl, supabaseKey, {
   },
 });
 
-// Smart Query Builder that bridges Supabase Cloud and Local PostgreSQL API
+// In-flight query deduplication map to prevent redundant concurrent fetches
+const inFlightRequests = new Map<string, Promise<any>>();
+
+// Smart Query Builder that bridges Supabase Cloud and Local PostgreSQL API with Redis acceleration
 class SmartQueryBuilder {
   private table: string;
   private action: "select" | "insert" | "update" | "delete" | "upsert" = "select";
   private payload: any = null;
+  private selectCols: string = "*";
   private eqCol: string | null = null;
   private eqVal: any = null;
+  private orderCol: string | null = null;
+  private isAscending: boolean | null = null;
+  private limitCount: number | null = null;
   private isSingle: boolean = false;
   private realQuery: any;
 
@@ -37,6 +44,7 @@ class SmartQueryBuilder {
 
   select(columns: string = "*") {
     this.action = "select";
+    this.selectCols = columns;
     this.realQuery = this.realQuery.select(columns);
     return this;
   }
@@ -69,6 +77,8 @@ class SmartQueryBuilder {
   }
 
   order(column: string, options?: { ascending?: boolean }) {
+    this.orderCol = column;
+    this.isAscending = options?.ascending ?? true;
     this.realQuery = this.realQuery.order(column, options);
     return this;
   }
@@ -85,6 +95,12 @@ class SmartQueryBuilder {
     return this;
   }
 
+  limit(count: number) {
+    this.limitCount = count;
+    this.realQuery = this.realQuery.limit(count);
+    return this;
+  }
+
   single() {
     this.isSingle = true;
     this.realQuery = this.realQuery.single();
@@ -97,6 +113,14 @@ class SmartQueryBuilder {
   }
 
   async execute(): Promise<{ data: any; error: any }> {
+    // Invalidate client caches on mutation
+    if (this.action !== "select") {
+      inFlightRequests.clear();
+      try {
+        localStorage.removeItem(`vmc_offline_${this.table}`);
+      } catch (_) {}
+    }
+
     // 1. Try Supabase Cloud if valid credentials are present
     if (hasValidSupabaseKeys) {
       try {
@@ -109,16 +133,48 @@ class SmartQueryBuilder {
       }
     }
 
-    // 2. Fallback to Local Express / PostgreSQL API
+    // 2. Fallback to Local Express / PostgreSQL API (Accelerated by Redis)
     try {
       if (this.action === "select") {
-        const res = await fetch(`/api/db/${this.table}`);
-        if (res.ok) {
-          let rows = await res.json();
-          if (this.eqCol && this.eqVal !== undefined) {
-            rows = rows.filter((r: any) => String(r[this.eqCol!]) === String(this.eqVal));
+        const params = new URLSearchParams();
+        if (this.selectCols && this.selectCols !== "*") {
+          params.append("select", this.selectCols);
+        }
+        if (this.eqCol && this.eqVal !== undefined) {
+          params.append(`eq_${this.eqCol}`, String(this.eqVal));
+        }
+        if (this.orderCol) {
+          params.append("order", this.orderCol);
+          if (this.isAscending !== null) {
+            params.append("ascending", String(this.isAscending));
           }
-          if (rows && rows.length > 0) {
+        }
+        if (this.limitCount) {
+          params.append("limit", String(this.limitCount));
+        }
+
+        const queryString = params.toString();
+        const url = queryString ? `/api/db/${this.table}?${queryString}` : `/api/db/${this.table}`;
+        const cacheKey = `select:${this.table}:${queryString}`;
+
+        let fetchPromise = inFlightRequests.get(cacheKey);
+
+        if (!fetchPromise) {
+          fetchPromise = fetch(url)
+            .then(async (res) => {
+              if (res.ok) return await res.json();
+              return [];
+            })
+            .finally(() => {
+              setTimeout(() => inFlightRequests.delete(cacheKey), 1000);
+            });
+          inFlightRequests.set(cacheKey, fetchPromise);
+        }
+
+        let rows = await fetchPromise;
+
+        if (Array.isArray(rows)) {
+          if (rows.length > 0 && !queryString) {
             try {
               localStorage.setItem(`vmc_offline_${this.table}`, JSON.stringify(rows));
             } catch (_) {}
@@ -129,18 +185,17 @@ class SmartQueryBuilder {
           return { data: rows, error: null };
         }
       } else if (this.action === "insert") {
-        const payloadData = Array.isArray(this.payload) ? this.payload[0] : this.payload;
         const res = await fetch(`/api/db/${this.table}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payloadData),
+          body: JSON.stringify(this.payload),
         });
         if (res.ok) {
           const inserted = await res.json();
           return { data: inserted, error: null };
         }
       } else if (this.action === "update" || this.action === "upsert") {
-        const id = this.eqVal || (this.payload ? this.payload.id : null);
+        const id = this.eqVal || (this.payload && !Array.isArray(this.payload) ? this.payload.id : null);
         const url = id ? `/api/db/${this.table}/${id}` : `/api/db/${this.table}`;
         const method = id ? "PUT" : "POST";
         const res = await fetch(url, {

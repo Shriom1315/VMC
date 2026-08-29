@@ -9,13 +9,21 @@ const connectionString = process.env.DATABASE_URL;
 
 export const pool = new Pool(
   connectionString
-    ? { connectionString }
+    ? {
+        connectionString,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 3000,
+      }
     : {
         host: process.env.POSTGRES_HOST || "localhost",
         port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
         database: process.env.POSTGRES_DB || "vmc_db",
         user: process.env.POSTGRES_USER || "vmc_user",
         password: process.env.POSTGRES_PASSWORD || "vmc_password",
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 3000,
       }
 );
 

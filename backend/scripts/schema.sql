@@ -723,3 +723,42 @@ alter table parties alter column id set default nextval('parties_id_seq');
 
 -- Step 4: Make the sequence owned by the column (so it drops with the table)
 alter sequence parties_id_seq owned by parties.id;
+
+-- ============================================================
+-- Performance Indexes for Fast Sorting & Lookups
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_parties_created_at ON parties(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_gauges_created_at ON gauges(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_calib_jobs_created_at ON calib_jobs(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_dispatches_created_at ON dispatches(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts(receipt_date DESC NULLS LAST, created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_equipments_created_at ON equipments(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_equipment_history_created_at ON equipment_history(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_quotations_created_at ON quotations(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_created_at ON purchase_orders(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_employees_created_at ON employees(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_inward_bills_created_at ON inward_bills(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_inward_items_created_at ON inward_items(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_firms_created_at ON firms(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_instrument_repairs_created_at ON instrument_repairs(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_rates_created_at ON rates(created_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_scopes_created_at ON scopes(created_at DESC NULLS LAST);
+
+-- Foreign Key & Relationship Indexes
+CREATE INDEX IF NOT EXISTS idx_inward_items_bill_id ON inward_items(inward_bill_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_invoice_ref ON receipts(invoice_ref);
+CREATE INDEX IF NOT EXISTS idx_invoices_party ON invoices(party);
+CREATE INDEX IF NOT EXISTS idx_dispatches_job_id ON dispatches(job_id);
+
+-- Lookup & Dropdown Autocomplete Indexes
+CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
+CREATE INDEX IF NOT EXISTS idx_gauges_gauge_name ON gauges(gauge_name);
+CREATE INDEX IF NOT EXISTS idx_equipments_name ON equipments(equipment_name);
+CREATE INDEX IF NOT EXISTS idx_calib_jobs_lab_id ON calib_jobs(lab_id);
+
+-- Status & Filter Indexes
+CREATE INDEX IF NOT EXISTS idx_calib_jobs_status ON calib_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_dispatches_status ON dispatches(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(invoice_date DESC NULLS LAST);
