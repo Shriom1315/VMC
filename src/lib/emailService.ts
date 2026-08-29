@@ -32,25 +32,32 @@ export async function sendEmail(opts: EmailOptions): Promise<void> {
     }];
   }
 
-  // 1. Try local Gmail SMTP endpoint (/api/send-email)
-  try {
-    const localRes = await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (localRes.ok) {
-      const localJson = await localRes.json();
-      if (localJson.success) return;
-    } else {
-      const errJson = await localRes.json().catch(() => null);
-      if (errJson?.error) {
-        throw new Error(errJson.error);
+  // 1. Try Gmail SMTP endpoint (/api/send-email or Netlify function)
+  const endpoints = ["/api/send-email", "/.netlify/functions/send-email"];
+  let lastError = "";
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) return;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        if (errJson?.error) {
+          lastError = errJson.error;
+          throw new Error(errJson.error);
+        }
       }
-    }
-  } catch (err: any) {
-    if (err.message && !err.message.includes("Failed to fetch")) {
-      throw err;
+    } catch (err: any) {
+      if (err.message && !err.message.includes("Failed to fetch")) {
+        throw err;
+      }
     }
   }
 
