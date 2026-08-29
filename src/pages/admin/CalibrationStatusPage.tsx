@@ -1,11 +1,17 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { Search, ClipboardCheck, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ClipboardCheck, X, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 import { useAuth, can } from "../../context/AuthContext";
 import CalibDatasheet from "./calib/CalibDatasheet";
 import CalibCertificate from "./calib/CalibCertificate";
 import ExportToolbar, { ColumnDef } from "../../components/ExportToolbar";
 import { supabase } from "../../lib/supabase";
+import SendEmailModal from "../../components/SendEmailModal";
+import { sendEmail, certificateEmailHtml, fetchPartyEmail } from "../../lib/emailService";
+import { robotoFont } from "../../lib/RobotoFont";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,8 +69,216 @@ export interface CalibJob {
   typeAReadings: { x1: number; x2: number; x3: number; avg: number; stdDev: number };
   stdDevNote: string;
   status: "pending" | "generated";
-  // raw db id for updates
   _dbId?: string;
+}
+
+function sanitizePdfText(str: string): string {
+  if (!str) return "";
+  return str;
+}
+
+export function buildCalibCertPdfDoc(job: CalibJob) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
+  const pageW = 210;
+  const marginL = 10;
+  const marginR = 10;
+  const contentW = pageW - marginL - marginR;
+
+  let activeFont = "helvetica";
+  try {
+    if (robotoFont && robotoFont.length > 1000) {
+      doc.addFileToVFS("DejaVuSans.ttf", robotoFont);
+      doc.addFont("DejaVuSans.ttf", "DejaVuSans", "normal");
+      doc.setFont("DejaVuSans");
+      activeFont = "DejaVuSans";
+    } else {
+      doc.setFont("helvetica");
+    }
+  } catch (e) {
+    console.warn("Could not load DejaVuSans font:", e);
+    doc.setFont("helvetica");
+  }
+
+  // ── 1. Top Orange Header Bar & Letterhead ──
+  doc.setFillColor(249, 115, 22);
+  doc.rect(0, 0, pageW, 3, "F");
+
+  // Company Name & Subtext
+  doc.setFontSize(13);
+  doc.setTextColor(234, 88, 12);
+  doc.text("VIKRAMADITYA METROLOGY CENTRE LLP", marginL, 11);
+
+  doc.setFontSize(7);
+  doc.setTextColor(75, 85, 99);
+  doc.text("Plot No. A-15/1, Near Ultratech M.I.D.C. Shiroli (P), Kolhapur 416 122", marginL, 15);
+  doc.text("Contact No. 9503601616, 7262831818  |  Email: vmcindialab@gmail.com", marginL, 19);
+  doc.text("Website : www.vikramadityacalibration.com", marginL, 23);
+
+  // NABL badge (Right side)
+  const nablX = marginL + contentW - 24;
+  doc.setDrawColor(29, 78, 216);
+  doc.setLineWidth(0.4);
+  doc.rect(nablX, 5, 24, 18, "S");
+  doc.setFontSize(7);
+  doc.setTextColor(29, 78, 216);
+  doc.text("NABL", nablX + 12, 10, { align: "center" });
+  doc.setFontSize(5.5);
+  doc.text("Accredited", nablX + 12, 14, { align: "center" });
+  doc.setFontSize(6.5);
+  doc.setTextColor(55, 65, 81);
+  doc.text("CC-4564", nablX + 12, 20, { align: "center" });
+
+  // Divider Line
+  doc.setDrawColor(249, 115, 22);
+  doc.setLineWidth(0.5);
+  doc.line(marginL, 26, marginL + contentW, 26);
+
+  doc.setFontSize(7);
+  doc.setTextColor(107, 114, 128);
+  doc.text("Certificate of Calibration issued by :", marginL, 30);
+
+  // ── 2. Title ──
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Calibration Certificate of : ${job.name}`, pageW / 2, 36, { align: "center" });
+
+  // ── 3. Top Info Table ──
+  const topInfo = [
+    [
+      `Date of Calibration: ${job.calibDate || "-"}`,
+      `Next Calibration Date: ${job.nextCalibDate || "-"}`,
+      `Calibration Certificate No: ${job.certNo || job.labId}`,
+    ],
+    [
+      `Certificate Issue Date: ${job.certIssueDate || job.calibDate || "-"}`,
+      `ULR No. ${job.ulrNo || "-"}`,
+      `Page No: 1 of 1`,
+    ],
+  ].map(r => r.map(cell => sanitizePdfText(cell)));
+
+  autoTable(doc, {
+    startY: 39,
+    body: topInfo,
+    theme: "grid",
+    styles: { font: activeFont },
+    margin: { left: marginL, right: marginR },
+    bodyStyles: { fontSize: 7, textColor: [0, 0, 0], lineWidth: 0.2, lineColor: [156, 163, 175], cellPadding: 1.8 },
+    columnStyles: {
+      0: { cellWidth: contentW * 0.34 },
+      1: { cellWidth: contentW * 0.33 },
+      2: { cellWidth: contentW * 0.33 },
+    },
+  });
+
+  // ── 4. Actual sizes from results ──
+  const goA    = job.results.find(r => r.parameter === "Go"    && r.row === "A");
+  const goB    = job.results.find(r => r.parameter === "Go"    && r.row === "B");
+  const noGoA  = job.results.find(r => r.parameter === "No Go" && r.row === "A");
+  const noGoB  = job.results.find(r => r.parameter === "No Go" && r.row === "B");
+  const goActual    = goA && goB    ? `${goA.avg.toFixed(4)} / ${goB.avg.toFixed(4)}`    : "-";
+  const noGoActual  = noGoA && noGoB ? `${noGoA.avg.toFixed(4)} / ${noGoB.avg.toFixed(4)}` : "-";
+
+  // ── 5. Numbered Fields Table (01 - 13) ──
+  const stdEquipStr = Array.isArray(job.standardEquipment) ? job.standardEquipment.join(", ") : String(job.standardEquipment || "-");
+
+  const numFields = [
+    ["01. Name & Address of Client", `: ${job.clientName}${job.clientAddress ? `, ${job.clientAddress}` : ""}`],
+    ["02. Client DC No/DC Date", `: ${job.dcNo || "-"} / ${job.dcDate || "-"}                                                        VMC ID: ${job.labId}`],
+    ["03. Condition of Gauge", `: ${job.conditionOfGauge || "-"}`],
+    ["04. Date of Received", `: ${job.dateReceived || "-"}`],
+    ["05. Description & Identification of Instrument", `: Name: ${job.name}    Make: ${job.make || "-"}\n  Sr.No.: ${job.srNo || "-"}    Identification No.: ${job.identificationNo || "-"}\n  Specification: ${job.specification || "-"}`],
+    ["06. Equipment & Masters used for Calibration", `: ${stdEquipStr || "-"}`],
+    ["07. Traceability", `: ${job.traceability || "-"}`],
+    ["08. Reference Standard used", `: ${job.referenceStd || job.refIsStd || "-"}`],
+    ["09. Calibration Method Used", `: ${job.calibMethodUse || job.toleranceMethod || "-"}`],
+    ["10. Calibration Carried out at Temp.", `: ${job.calibTemp || "-"}`],
+    ["11. Uncertainty of Measurement\n   ((At 95.45% Confidence Level (K=2)))", `: ${job.uncertainty || "-"}`],
+    ["12. Calibration Location", `: ${job.calibLocation || "-"}`],
+    ["13. Observation", `: ${job.observation || "-"}`],
+  ].map(row => [row[0], sanitizePdfText(row[1])]);
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 2,
+    body: numFields,
+    theme: "grid",
+    styles: { font: activeFont },
+    margin: { left: marginL, right: marginR },
+    bodyStyles: { fontSize: 7, textColor: [0, 0, 0], lineWidth: 0.2, lineColor: [156, 163, 175], cellPadding: 1.6 },
+    columnStyles: { 0: { cellWidth: 62 } },
+  });
+
+  // ── 6. Parameters Table ──
+  const paramHead = [["Parameter", "Basic Size", "Specification Limit Max", "Specification Limit Min", "Wear Limit", "Actual Size"]];
+  const paramBody = (job.parameters.length > 0 ? job.parameters : [
+    { parameter: "Go", basicSize: 0, specLimitMax: 0, specLimitMin: 0, wearLimit: null },
+    { parameter: "No Go", basicSize: 0, specLimitMax: 0, specLimitMin: 0, wearLimit: null }
+  ]).map(p => [
+    p.parameter,
+    String(p.basicSize),
+    p.specLimitMax.toFixed(4),
+    p.specLimitMin.toFixed(4),
+    p.wearLimit !== null ? p.wearLimit.toFixed(4) : "-",
+    p.parameter === "Go" ? goActual : noGoActual,
+  ]);
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 2,
+    head: paramHead,
+    body: paramBody,
+    theme: "grid",
+    styles: { font: activeFont },
+    margin: { left: marginL, right: marginR },
+    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.2, lineColor: [156, 163, 175], halign: "center", fontSize: 7 },
+    bodyStyles: { fontSize: 7, textColor: [0, 0, 0], lineWidth: 0.2, lineColor: [156, 163, 175], halign: "center", cellPadding: 1.6 },
+    columnStyles: { 0: { halign: "left" } },
+  });
+
+  // ── 7. Conformity & Remarks (Field 14) ──
+  const confBody = [
+    [sanitizePdfText(`14. Conformity Statement with Decision Rule    : ${job.conformityStatement || "Conforms to specifications"}`)],
+    [sanitizePdfText(`Remark : ${job.remark || "-"}`)],
+  ];
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 2,
+    body: confBody,
+    theme: "grid",
+    styles: { font: activeFont },
+    margin: { left: marginL, right: marginR },
+    bodyStyles: { fontSize: 7, textColor: [0, 0, 0], lineWidth: 0.2, lineColor: [156, 163, 175], cellPadding: 1.6 },
+  });
+
+  // ── 8. Signatures, Footer Disclaimer & END line ──
+  let curY = doc.lastAutoTable.finalY + 10;
+  if (curY > 265) { doc.addPage(); curY = 20; }
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
+  doc.text(job.calibratedBy || "Calibrated By", marginL + 5, curY);
+  doc.text(job.approvedBy || "Approved By", marginL + contentW - 5, curY, { align: "right" });
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(107, 114, 128);
+  doc.text("Calibrated By", marginL + 5, curY + 4);
+  doc.text("Approved By", marginL + contentW - 5, curY + 4, { align: "right" });
+
+  const discY = curY + 10;
+  doc.setDrawColor(209, 213, 219); doc.setLineWidth(0.3);
+  doc.line(marginL, discY, marginL + contentW, discY);
+
+  doc.setFontSize(6); doc.setTextColor(107, 114, 128);
+  doc.text("This Certificate Pertains Only to the Items Calibrated At Vikramditya Metrology Centre LLP.", marginL, discY + 3.5);
+  doc.text("This Calibration Certificate Shall Not Be Reproduced Except In Full, without Written Approval of The Laboratory.", marginL, discY + 7);
+  doc.text("The Result Produced In This Certificate Are Valid Under Stated Condition At The Time of Calibration.", marginL, discY + 10.5);
+
+  doc.setFontSize(7.5); doc.setTextColor(156, 163, 175);
+  doc.text("------------------------------ END ------------------------------", pageW / 2, discY + 16, { align: "center" });
+
+  return doc;
+}
+
+export function generateCertPdfBase64(job: CalibJob): string {
+  const doc = buildCalibCertPdfDoc(job);
+  const dataUri = doc.output("datauristring");
+  return dataUri.split(",")[1] ?? "";
 }
 
 // ─── DB row → CalibJob mapper ─────────────────────────────────────────────────
@@ -137,8 +351,6 @@ function mapRow(r: any): CalibJob {
   };
 }
 
-// ─── Measurement entry row ────────────────────────────────────────────────────
-
 interface MeasRow {
   parameter: string;
   row: "A" | "B";
@@ -149,8 +361,6 @@ function calcAvg(x1: string, x2: string, x3: string): number {
   const n = [x1, x2, x3].map(Number).filter(n => !isNaN(n));
   return n.length ? n.reduce((a, b) => a + b, 0) / n.length : 0;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 type PrintMode = "datasheet" | "print" | "print_lh";
 
@@ -180,11 +390,9 @@ export default function CalibrationStatusPage() {
   const [error,          setError]          = useState<string | null>(null);
   const [visibleCols,    setVisibleCols]    = useState(CALIB_COLUMNS.map(c => c.key));
 
-  // ── Print state ──
   const [printJob,  setPrintJob]  = useState<CalibJob | null>(null);
   const [printMode, setPrintMode] = useState<PrintMode>("print");
 
-  // ── Generate certificate modal state ──
   const [genJob,       setGenJob]       = useState<CalibJob | null>(null);
   const [measRows,     setMeasRows]     = useState<MeasRow[]>([]);
   const [genCertNo,    setGenCertNo]    = useState("");
@@ -200,14 +408,18 @@ export default function CalibrationStatusPage() {
   const [genError,     setGenError]     = useState<string | null>(null);
   const [employeeNames, setEmployeeNames] = useState<string[]>([]);
 
-  // Load employee names for dropdowns
+  // ── Email modal state ──
+  const [certEmailModal,   setCertEmailModal]   = useState(false);
+  const [certEmailJob,     setCertEmailJob]     = useState<CalibJob | null>(null);
+  const [certClientEmail,  setCertClientEmail]  = useState("");
+  const [pendingCertPdf,   setPendingCertPdf]   = useState("");
+
   useEffect(() => {
     supabase.from("employees").select("name, designation").eq("is_active", true).order("name").then(({ data }) => {
       setEmployeeNames((data ?? []).map((e: any) => `${e.name}${e.designation ? ` (${e.designation})` : ""}`));
     });
   }, []);
 
-  // ── Query helpers ──
   const handleViewPending = async () => {
     setError(null);
     const { data, error: err } = await supabase
@@ -228,7 +440,6 @@ export default function CalibrationStatusPage() {
     setGenResults((data ?? []).map(mapRow));
   };
 
-  // ── Search by VMC ID directly ──
   const handleVmcSearch = async () => {
     if (!vmcIdSearch.trim()) return;
     setError(null);
@@ -256,7 +467,6 @@ export default function CalibrationStatusPage() {
     clientName: j.clientName, calibDate: j.calibDate, status: j.status,
   }));
 
-  // ── Open generate certificate modal ──
   const openGenerate = (job: CalibJob) => {
     setGenJob(job);
     setGenError(null);
@@ -270,14 +480,12 @@ export default function CalibrationStatusPage() {
     setGenConformity(job.conformityStatement !== "-" ? job.conformityStatement : "Conforms to specifications");
     setGenRemark(job.remark || "");
 
-    // Build measurement rows from existing parameters
     const rows: MeasRow[] = [];
     const params = job.parameters.length > 0
       ? job.parameters
       : [{ parameter: "Go", basicSize: 0, specLimitMax: 0, specLimitMin: 0, wearLimit: null },
          { parameter: "No Go", basicSize: 0, specLimitMax: 0, specLimitMin: 0, wearLimit: null }];
 
-    // Pre-fill from existing results if any
     const existingMap: Record<string, Record<string, CalibResult>> = {};
     job.results.forEach(r => {
       if (!existingMap[r.parameter]) existingMap[r.parameter] = {};
@@ -307,7 +515,6 @@ export default function CalibrationStatusPage() {
     });
   };
 
-  // ── Save measurements and generate certificate ──
   const handleGenerateCertificate = async () => {
     if (!genJob) return;
     setGenSaving(true); setGenError(null);
@@ -338,12 +545,43 @@ export default function CalibrationStatusPage() {
 
     if (err) { setGenError(err.message); setGenSaving(false); return; }
 
+    const completedJob: CalibJob = {
+      ...genJob,
+      certNo:              genCertNo,
+      ulrNo:               genUlrNo,
+      calibDate:           genCalibDate,
+      nextCalibDate:       genNextDate,
+      calibratedBy:        genCalibBy,
+      approvedBy:          genApprovedBy,
+      observation:         genObs,
+      conformityStatement: genConformity,
+      remark:              genRemark,
+      status:              "generated",
+    };
+
+    const pEmail = await fetchPartyEmail(genJob.clientName);
+    const pdfBase64 = generateCertPdfBase64(completedJob);
+
     setGenSaving(false);
     setGenJob(null);
 
-    // Refresh results
+    // ── Open email modal ──
+    setCertEmailJob(completedJob);
+    setCertClientEmail(pEmail);
+    setPendingCertPdf(pdfBase64);
+    setCertEmailModal(true);
+
     if (pendingResults !== null) handleViewPending();
     if (genResults !== null) handleViewGenerated();
+  };
+
+  const handleEmailCert = async (job: CalibJob) => {
+    const pEmail = await fetchPartyEmail(job.clientName);
+    const pdfBase64 = generateCertPdfBase64(job);
+    setCertEmailJob(job);
+    setCertClientEmail(pEmail);
+    setPendingCertPdf(pdfBase64);
+    setCertEmailModal(true);
   };
 
   const openPrint = (job: CalibJob, mode: PrintMode) => {
@@ -352,7 +590,6 @@ export default function CalibrationStatusPage() {
     setTimeout(() => window.print(), 300);
   };
 
-  // ── Print view ──
   if (printJob) {
     return (
       <div>
@@ -497,6 +734,15 @@ export default function CalibrationStatusPage() {
                             className="bg-brand-orange text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-orange-700 transition-colors text-center flex items-center justify-center gap-1"
                           >
                             <ClipboardCheck size={11} /> Generate
+                          </button>
+                        )}
+                        {/* Email Certificate button — available for generated certificates */}
+                        {job.status === "generated" && (
+                          <button
+                            onClick={() => handleEmailCert(job)}
+                            className="bg-emerald-600 text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-emerald-700 transition-colors text-center flex items-center justify-center gap-1"
+                          >
+                            <Mail size={11} /> Email
                           </button>
                         )}
                         <button onClick={() => openPrint(job, "datasheet")} className="bg-blue-500 text-white text-[11px] font-medium px-3 py-1 rounded hover:bg-blue-600 transition-colors text-center">Datasheet</button>
@@ -646,6 +892,33 @@ export default function CalibrationStatusPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Email Certificate Modal ── */}
+      {certEmailModal && certEmailJob && (
+        <SendEmailModal
+          defaultEmail={certClientEmail}
+          subject={`Calibration Certificate ${certEmailJob.certNo || certEmailJob.labId} for ${certEmailJob.name}`}
+          previewName={`Calibration Certificate (${certEmailJob.certNo || certEmailJob.name})`}
+          onClose={() => { setCertEmailModal(false); setCertEmailJob(null); }}
+          onSend={async (targetEmail) => {
+            await sendEmail({
+              to: targetEmail,
+              subject: `Calibration Certificate ${certEmailJob.certNo || certEmailJob.labId} for ${certEmailJob.name}`,
+              html: certificateEmailHtml({
+                clientName: certEmailJob.clientName || "Valued Client",
+                gaugeName: certEmailJob.name,
+                labId: certEmailJob.labId,
+                certNo: certEmailJob.certNo || certEmailJob.labId,
+                calibDate: certEmailJob.calibDate,
+                nextCalibDate: certEmailJob.nextCalibDate,
+                labName: "VIKRAMADITYA METROLOGY CENTRE LLP",
+              }),
+              pdfBase64: pendingCertPdf,
+              pdfName: `Certificate_${(certEmailJob.certNo || certEmailJob.labId).replace(/\//g, "-")}.pdf`,
+            });
+          }}
+        />
       )}
     </motion.div>
   );

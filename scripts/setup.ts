@@ -49,7 +49,7 @@ async function createAdminAccount() {
 
   // Check if already exists
   const { data: existing } = await sb.auth.admin.listUsers();
-  const alreadyExists = existing?.users?.some(u => u.email === ADMIN_EMAIL);
+  const alreadyExists = (existing as any)?.users?.some((u: any) => u.email === ADMIN_EMAIL);
 
   if (alreadyExists) {
     console.log("  ℹ  Admin account already exists — skipping creation");

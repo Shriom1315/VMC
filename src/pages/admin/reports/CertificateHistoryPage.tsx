@@ -1,9 +1,11 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { Search, Printer, Download } from "lucide-react";
+import { Search, Printer, Download, Mail } from "lucide-react";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { supabase } from "../../../lib/supabase";
+import SendEmailModal from "../../../components/SendEmailModal";
+import { sendEmail, certificateEmailHtml, fetchPartyEmail } from "../../../lib/emailService";
 
 interface Certificate {
   id: string;
@@ -23,41 +25,92 @@ const RESULT_COLOR = {
   conditional: "bg-amber-100 text-amber-700",
 };
 
+import { buildCalibCertPdfDoc } from "../CalibrationStatusPage";
+
+function generateCertPDFBase64(c: Certificate): string {
+  const jobObj: any = {
+    labId: c.certNo,
+    name: c.instrument,
+    identificationNo: c.serialNo,
+    specification: "-",
+    manuSr: c.serialNo,
+    process: "-",
+    dcNo: "-",
+    dcDate: "-",
+    calibDate: c.calibDate,
+    nextCalibDate: c.dueDate,
+    certNo: c.certNo,
+    certIssueDate: c.calibDate,
+    ulrNo: "-",
+    srNo: c.serialNo,
+    make: "-",
+    lc: "-",
+    refIsStd: "-",
+    calibMethodUse: "-",
+    toleranceMethod: "-",
+    standardEquipment: [],
+    clientName: c.party,
+    clientAddress: "",
+    conditionOfGauge: "Good",
+    dateReceived: c.calibDate,
+    traceability: "-",
+    referenceStd: "-",
+    calibTemp: "20 °C ± 1 °C",
+    uncertainty: "-",
+    calibLocation: "In Lab",
+    observation: c.result.toUpperCase(),
+    conformityStatement: "Conforms to specifications",
+    remark: "-",
+    calibratedBy: c.technician,
+    approvedBy: c.technician,
+    parameters: [],
+    results: [],
+  };
+  const doc = buildCalibCertPdfDoc(jobObj);
+  const dataUri = doc.output("datauristring");
+  return dataUri.split(",")[1] ?? "";
+}
+
 function downloadCertPDF(c: Certificate) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
-  const pageW = 210, marginL = 15, marginR = 15;
-
-  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-  doc.text("VIKRAMADITYA METROLOGY CENTRE LLP", pageW / 2, 18, { align: "center" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-  doc.text("Plot No. A-15/1, Near Ultratech MIDC Shiroli (P), Kolhapur 416122", pageW / 2, 24, { align: "center" });
-  doc.line(marginL, 28, pageW - marginR, 28);
-
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12);
-  doc.text(`Calibration Certificate: ${c.certNo}`, pageW / 2, 35, { align: "center" });
-
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-  const rows = [
-    ["Party / Client", c.party],
-    ["Instrument", c.instrument],
-    ["Serial No.", c.serialNo],
-    ["Calibration Date", c.calibDate],
-    ["Next Due Date", c.dueDate],
-    ["Calibrated By", c.technician],
-    ["Result", c.result.toUpperCase()],
-  ];
-  doc.autoTable({
-    startY: 40,
-    body: rows,
-    theme: "grid",
-    margin: { left: marginL, right: marginR },
-    bodyStyles: { fontSize: 9 },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-  });
-
-  doc.setFont("helvetica", "italic"); doc.setFontSize(8);
-  doc.text("This certificate is issued by Vikramaditya Metrology Centre LLP.", pageW / 2, doc.lastAutoTable.finalY + 12, { align: "center" });
-
+  const jobObj: any = {
+    labId: c.certNo,
+    name: c.instrument,
+    identificationNo: c.serialNo,
+    specification: "-",
+    manuSr: c.serialNo,
+    process: "-",
+    dcNo: "-",
+    dcDate: "-",
+    calibDate: c.calibDate,
+    nextCalibDate: c.dueDate,
+    certNo: c.certNo,
+    certIssueDate: c.calibDate,
+    ulrNo: "-",
+    srNo: c.serialNo,
+    make: "-",
+    lc: "-",
+    refIsStd: "-",
+    calibMethodUse: "-",
+    toleranceMethod: "-",
+    standardEquipment: [],
+    clientName: c.party,
+    clientAddress: "",
+    conditionOfGauge: "Good",
+    dateReceived: c.calibDate,
+    traceability: "-",
+    referenceStd: "-",
+    calibTemp: "20 °C ± 1 °C",
+    uncertainty: "-",
+    calibLocation: "In Lab",
+    observation: c.result.toUpperCase(),
+    conformityStatement: "Conforms to specifications",
+    remark: "-",
+    calibratedBy: c.technician,
+    approvedBy: c.technician,
+    parameters: [],
+    results: [],
+  };
+  const doc = buildCalibCertPdfDoc(jobObj);
   doc.save(`Certificate_${c.certNo.replace(/\//g, "-")}.pdf`);
 }
 
@@ -94,6 +147,9 @@ export default function CertificateHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
+  const [emailCert, setEmailCert] = useState<Certificate | null>(null);
+  const [emailPartyAddress, setEmailPartyAddress] = useState("");
+
   useEffect(() => {
     const fetchCerts = async () => {
       setLoading(true);
@@ -124,6 +180,32 @@ export default function CertificateHistoryPage() {
     fetchCerts();
   }, []);
 
+  const handleOpenEmail = async (c: Certificate) => {
+    setEmailCert(c);
+    const pEmail = await fetchPartyEmail(c.party);
+    setEmailPartyAddress(pEmail);
+  };
+
+  const handleSendEmail = async (targetEmail: string) => {
+    if (!emailCert) return;
+    const pdfBase64 = generateCertPDFBase64(emailCert);
+    await sendEmail({
+      to: targetEmail,
+      subject: `Calibration Certificate: ${emailCert.certNo} - ${emailCert.instrument}`,
+      html: certificateEmailHtml({
+        clientName: emailCert.party || "Valued Client",
+        gaugeName: emailCert.instrument,
+        labId: emailCert.serialNo || emailCert.id,
+        certNo: emailCert.certNo,
+        calibDate: emailCert.calibDate,
+        nextCalibDate: emailCert.dueDate,
+        labName: "Vikramaditya Metrology Centre LLP",
+      }),
+      pdfBase64,
+      pdfName: `Certificate_${emailCert.certNo.replace(/\//g, "-")}.pdf`,
+    });
+  };
+
   const filtered = certs.filter(c =>
     [c.certNo, c.party, c.instrument, c.serialNo].some(v => v.toLowerCase().includes(search.toLowerCase()))
   );
@@ -140,7 +222,7 @@ export default function CertificateHistoryPage() {
 
       <div>
         <h1 className="text-lg font-semibold text-text-primary">Certificate History</h1>
-        <p className="text-xs text-text-secondary mt-0.5">All calibration certificates issued — searchable and printable</p>
+        <p className="text-xs text-text-secondary mt-0.5">All calibration certificates issued — searchable, printable and emailable</p>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2.5 mb-4">{error}</div>}
@@ -187,6 +269,9 @@ export default function CertificateHistoryPage() {
                     <button onClick={() => downloadCertPDF(c)} className="text-xs text-text-secondary hover:text-brand-orange transition-colors flex items-center gap-1" title="Download PDF">
                       <Download size={13} /> PDF
                     </button>
+                    <button onClick={() => handleOpenEmail(c)} className="text-xs text-brand-orange hover:underline transition-colors flex items-center gap-1" title="Email Certificate">
+                      <Mail size={13} /> Email
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -194,6 +279,16 @@ export default function CertificateHistoryPage() {
           </table>
         </div>
       </div>
+
+      {emailCert && (
+        <SendEmailModal
+          defaultEmail={emailPartyAddress}
+          subject={`Calibration Certificate ${emailCert.certNo}`}
+          previewName={`Certificate ${emailCert.certNo}`}
+          onSend={handleSendEmail}
+          onClose={() => setEmailCert(null)}
+        />
+      )}
     </motion.div>
   );
 }

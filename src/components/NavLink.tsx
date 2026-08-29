@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 
-export default function NavLink({ label, to }: { label: string; to: string }) {
+export default function NavLink({ label, to }: { label: string; to: string; key?: string }) {
   const location = useLocation();
   const active = location.pathname === to;
 

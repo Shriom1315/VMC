@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Vikramaditya Metrology Calibration System (VMC)
 
-# Run and deploy your AI Studio app
+VMC is an industrial metrology and gauge calibration laboratory management application built with **React 19**, **Vite**, **TypeScript**, **TailwindCSS v4**, and **Supabase**.
 
-This contains everything you need to run your app locally.
+## Key Features
+- **ISO/IEC 17025 Compliance**: Calibration certificate tracking, ULR numbers, NABL vs Non-NABL calibration badges.
+- **Quotations & PO Workflow**: Instant PDF generation, discount tracking, and email delivery.
+- **Certificate Emailing via Gmail SMTP**: Direct PDF emailing of Quotations and Calibration Certificates with registered party or custom recipient email selection.
+- **Role-Based Access Control (RBAC)**: Dedicated permissions for `admin`, `manager`, and `staff`.
 
-View your app in AI Studio: https://ai.studio/apps/cc254564-91ca-4256-b162-af580c7b0cf4
+## Setup & Running Locally
 
-## Run Locally
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-**Prerequisites:**  Node.js
+2. **Configure Environment Variables:**
+   Copy `.env.example` to `.env` and fill in your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
 
+3. **Gmail SMTP Setup (Edge Function):**
+   To send emails via Gmail SMTP, set up an App Password in your Google Account (Security → 2-Step Verification → App Passwords) and set the secrets in Supabase Edge Functions:
+   ```bash
+   supabase secrets set GMAIL_USER="your-email@gmail.com" GMAIL_APP_PASSWORD="your-app-password"
+   supabase functions deploy send-email
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+4. **Run Development Server:**
+   ```bash
+   npm run dev
+   ```
+

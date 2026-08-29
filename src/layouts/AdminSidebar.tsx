@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronDown, LayoutDashboard, FileText, BarChart2, Home, Settings, Lock } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth, can, Permission } from "../context/AuthContext";
 

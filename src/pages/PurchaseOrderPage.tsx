@@ -32,20 +32,79 @@ export default function PurchaseOrderPage() {
     { id: "1", poCode: "", particular: "", category: "", size: "", qty: 1, repair: 0, calibration: 0, discount: 0 },
   ]);
 
-  const fetchClientDetails = async () => {
-    const id = parseInt(clientIdSearch);
-    if (isNaN(id)) { alert("Please enter a valid numeric ID."); return; }
-    const { data, error } = await supabase
-      .from("parties")
-      .select("name, address")
-      .eq("id", id)
-      .single();
-    if (error || !data) {
-      alert("Client not found in registry.");
-    } else {
-      setCustomerName(data.name ?? "");
-      setAddress(data.address ?? "");
+  const [quotationsList, setQuotationsList] = useState<any[]>([]);
+  const [selectedQuoId, setSelectedQuoId]   = useState<string>("");
+
+  // Fetch available quotations for quick import
+  const fetchQuotationsList = async () => {
+    const { data } = await supabase
+      .from("quotations")
+      .select("id, quotation_no, client_name, client_address, items, discount_percent, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setQuotationsList(data);
+  };
+
+  useEffect(() => {
+    fetchQuotationsList();
+  }, []);
+
+  const loadQuotationData = (quo: any) => {
+    setCustomerName(quo.client_name ?? "");
+    setAddress(quo.client_address ?? "");
+    const qItems = Array.isArray(quo.items) ? quo.items : [];
+    if (qItems.length > 0) {
+      setItems(qItems.map((it: any, idx: number) => ({
+        id: String(Date.now() + idx),
+        poCode: it.hsn || it.poCode || it.code || "",
+        particular: it.desc || it.particular || "",
+        category: it.identification || it.category || "",
+        size: it.size || "",
+        qty: Math.max(1, Number(it.qty) || 1),
+        repair: Math.max(0, Number(it.repair) || 0),
+        calibration: Math.max(0, Number(it.calib || it.calibration) || 0),
+        discount: Math.max(0, Number(quo.discount_percent) || Number(it.discount) || 0),
+      })));
     }
+    setSaveMsg(`Loaded client & ${qItems.length} items from Quotation ${quo.quotation_no}`);
+    setTimeout(() => setSaveMsg(""), 4000);
+  };
+
+  const fetchClientDetails = async () => {
+    const query = clientIdSearch.trim();
+    if (!query) { alert("Please enter a Quotation No / ID or Party ID."); return; }
+
+    // 1. First search in quotations by quotation_no or id
+    const { data: quoData } = await supabase
+      .from("quotations")
+      .select("*")
+      .or(`quotation_no.ilike.%${query}%,id.eq.${!isNaN(Number(query)) ? query : 0}`)
+      .limit(1);
+
+    if (quoData && quoData.length > 0) {
+      loadQuotationData(quoData[0]);
+      return;
+    }
+
+    // 2. Fallback to parties table if numeric ID
+    const numId = parseInt(query);
+    if (!isNaN(numId)) {
+      const { data: partyData, error } = await supabase
+        .from("parties")
+        .select("name, address")
+        .eq("id", numId)
+        .single();
+
+      if (!error && partyData) {
+        setCustomerName(partyData.name ?? "");
+        setAddress(partyData.address ?? "");
+        setSaveMsg(`Loaded client details for Party #${numId}`);
+        setTimeout(() => setSaveMsg(""), 3000);
+        return;
+      }
+    }
+
+    alert(`No Quotation or Client found matching "${query}".`);
   };
 
   const addItem = () =>
@@ -217,20 +276,36 @@ export default function PurchaseOrderPage() {
               <label className={labelCls}>PO Date</label>
               <input type="date" value={poDate} readOnly className={readonlyCls} />
             </div>
-            <div className="lg:col-span-2 flex gap-2 items-end">
-              <div className="flex-1">
-                <label className={labelCls}>Customer Name</label>
-                <input value={customerName} onChange={e => setCustomerName(e.target.value)} className={inputCls} placeholder="Enter customer name..." />
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+              <div>
+                <label className={labelCls}>Import from Quotation</label>
+                <select
+                  value={selectedQuoId}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSelectedQuoId(val);
+                    const found = quotationsList.find(q => String(q.id) === val);
+                    if (found) loadQuotationData(found);
+                  }}
+                  className="w-full border border-border rounded-md px-3 py-2 text-xs text-text-primary bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange h-[38px]"
+                >
+                  <option value="">-- Select Quotation --</option>
+                  {quotationsList.map(q => (
+                    <option key={q.id} value={q.id}>
+                      {q.quotation_no} - {q.client_name} ({Array.isArray(q.items) ? q.items.length : 0} items)
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="w-36 print:hidden">
-                <label className={labelCls}>Fetch by ID</label>
+              <div className="print:hidden">
+                <label className={labelCls}>Fetch by Quo No / ID</label>
                 <div className="flex h-[38px]">
                   <input
                     value={clientIdSearch}
                     onChange={e => setClientIdSearch(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && fetchClientDetails()}
-                    className="flex-1 min-w-0 border border-border border-r-0 rounded-l-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange"
-                    placeholder="ID..."
+                    className="flex-1 min-w-0 border border-border border-r-0 rounded-l-md px-3 py-2 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    placeholder="Quo No / ID / Client ID..."
                   />
                   <button
                     onClick={fetchClientDetails}
@@ -242,9 +317,15 @@ export default function PurchaseOrderPage() {
               </div>
             </div>
           </div>
-          <div className="mt-4">
-            <label className={labelCls}>Customer Address</label>
-            <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} className={`${inputCls} resize-none`} placeholder="Client address..." />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className={labelCls}>Customer Name</label>
+              <input value={customerName} onChange={e => setCustomerName(e.target.value)} className={inputCls} placeholder="Enter customer name..." />
+            </div>
+            <div>
+              <label className={labelCls}>Customer Address</label>
+              <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} className={`${inputCls} resize-none`} placeholder="Client address..." />
+            </div>
           </div>
         </div>
 

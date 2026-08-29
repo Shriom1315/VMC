@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 
 export default function ContactPage() {
   const [name, setName]       = useState("");

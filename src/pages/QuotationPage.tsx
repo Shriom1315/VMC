@@ -1,10 +1,12 @@
 import { motion } from "motion/react";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Printer, FileDown, Plus, Trash2, Save, Eye, Download } from "lucide-react";
+import { Printer, FileDown, Plus, Trash2, Save, Eye, Download, Mail } from "lucide-react";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { supabase } from "../lib/supabase";
 import { useAuth, can } from "../context/AuthContext";
+import SendEmailModal from "../components/SendEmailModal";
+import { sendEmail, quotationEmailHtml, fetchPartyEmail } from "../lib/emailService";
 
 interface SavedQuotation {
   id: string;
@@ -41,6 +43,10 @@ export default function QuotationPage() {
   const [poNo, setPoNo] = useState("");
   const [discountPercent, setDiscountPercent] = useState(0);
   const [saveMsg, setSaveMsg] = useState("");
+  // ── Email modal state ──
+  const [emailModal, setEmailModal]           = useState(false);
+  const [emailPartyAddress, setEmailPartyAddress] = useState("");
+  const [pendingEmailPdf, setPendingEmailPdf]   = useState<string>("");  // base64 PDF
 
   // Saved quotations list
   const [savedList, setSavedList] = useState<SavedQuotation[]>([]);
@@ -96,6 +102,198 @@ export default function QuotationPage() {
 
   useEffect(() => { fetchSaved(); }, [canSave]);
 
+  // Unified PDF generator — creates identical PDF for both download and email attachment
+  const buildQuotationPdfDoc = (data?: {
+    quotationNo?: string;
+    date?: string;
+    clientDate?: string;
+    clientName?: string;
+    clientAddress?: string;
+    clientGSTIN?: string;
+    kindAttn?: string;
+    clientDCNo?: string;
+    poNo?: string;
+    discountPercent?: number;
+    items?: any[];
+  }) => {
+    const qNo     = data?.quotationNo   ?? quotationNo;
+    const qDate   = data?.date          ?? date;
+    const qCDate  = data?.clientDate    ?? clientDate;
+    const qName   = data?.clientName    ?? clientName;
+    const qAddr   = data?.clientAddress ?? clientAddress;
+    const qGst    = data?.clientGSTIN   ?? clientGSTIN;
+    const qAttn   = data?.kindAttn      ?? kindAttn;
+    const qDcNo   = data?.clientDCNo    ?? clientDCNo;
+    const qPo     = data?.poNo          ?? poNo;
+    const qDisc   = data?.discountPercent ?? discountPercent;
+    const qItems  = data?.items         ?? items;
+
+    const qTotalQty = qItems.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    const qBaseTotal = qItems.reduce((sum, item) => sum + (Number(item.repair) + Number(item.calib)) * Number(item.qty), 0);
+    const qDiscountAmount = qBaseTotal * (qDisc / 100);
+    const qNetTotal = qBaseTotal - qDiscountAmount;
+    const qRoundedTotal = Math.round(qNetTotal);
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
+    const pageW = 210;
+    const marginL = 10;
+    const marginR = 10;
+    const contentW = pageW - marginL - marginR;
+
+    // ── COMPANY HEADER ──
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("VIKRAMADITYA ENTERPRISES.", pageW / 2, 14, { align: "center" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Office : A/P Male, Tal. Panhala, Dist. Kolhapur 416122", pageW / 2, 19, { align: "center" });
+    doc.text("Contact No -9503601616  Email- kiranpatil24586@gmail.com", pageW / 2, 23, { align: "center" });
+
+    // ── "Quotation" title box ──
+    doc.setFillColor(255, 255, 255);
+    doc.rect(marginL, 25, contentW, 8, "S");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Quotation", pageW / 2, 31, { align: "center" });
+
+    // ── CLIENT INFO GRID ──
+    const infoY = 33;
+    const leftW = contentW * 0.5;
+    const rightW = contentW * 0.5;
+    const rowH = 7;
+
+    doc.rect(marginL, infoY, contentW, rowH * 4, "S");
+    doc.line(marginL + leftW, infoY, marginL + leftW, infoY + rowH * 4);
+    doc.line(marginL, infoY + rowH,     marginL + leftW, infoY + rowH);
+    doc.line(marginL, infoY + rowH * 2, marginL + leftW, infoY + rowH * 2);
+    doc.line(marginL, infoY + rowH * 3, marginL + leftW, infoY + rowH * 3);
+    doc.line(marginL + leftW, infoY + rowH,     marginL + contentW, infoY + rowH);
+    doc.line(marginL + leftW, infoY + rowH * 2, marginL + contentW, infoY + rowH * 2);
+    doc.line(marginL + leftW, infoY + rowH * 3, marginL + contentW, infoY + rowH * 3);
+    const rightMid = marginL + leftW + rightW * 0.5;
+    doc.line(rightMid, infoY, rightMid, infoY + rowH * 2);
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text(`M/S- ${qName}`,        marginL + 2, infoY + 5);
+    doc.text(qAddr,               marginL + 2, infoY + rowH + 5);
+    doc.text(`GSTIN No- ${qGst}`,  marginL + 2, infoY + rowH * 2 + 5);
+    doc.text(`Kind Attn. ${qAttn}`,    marginL + 2, infoY + rowH * 3 + 5);
+    doc.text(`Quotation No- ${qNo}`, marginL + leftW + 2, infoY + 5);
+    doc.text(`Date- ${qDate}`,                rightMid + 2,         infoY + 5);
+    doc.text(`Client DC No- ${qDcNo}`,  marginL + leftW + 2, infoY + rowH + 5);
+    doc.text(`DATE- ${qCDate}`,          rightMid + 2,         infoY + rowH + 5);
+    doc.text(`PO NO :- ${qPo}`,             marginL + leftW + 2, infoY + rowH * 2 + 5);
+
+    // ── ITEMS TABLE ──
+    const tableStartY = infoY + rowH * 4;
+    const tableData = qItems.map((item, idx) => [
+      idx + 1,
+      item.desc,
+      item.identification,
+      item.size,
+      item.hsn,
+      Number(item.repair).toFixed(2),
+      Number(item.calib).toFixed(2),
+      item.qty,
+      ((Number(item.repair) + Number(item.calib)) * Number(item.qty)).toFixed(2),
+    ]);
+    while (tableData.length < 15) tableData.push(["", "", "", "", "", "", "", "", ""]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [["Sr. No", "Description", "Identification", "Size/Range/LC", "HSN", "Repair", "Calibration", "Qty", "Amount"]],
+      body: tableData,
+      theme: "grid",
+      margin: { left: marginL, right: marginR },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold", lineWidth: 0.3, lineColor: [0, 0, 0], halign: "center", fontSize: 7, cellPadding: 2 },
+      bodyStyles: { fontSize: 7, textColor: [0, 0, 0], lineWidth: 0.3, lineColor: [0, 0, 0], cellPadding: 2, minCellHeight: 6 },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 12 },
+        1: { halign: "left",   cellWidth: 40 },
+        2: { halign: "center", cellWidth: 28 },
+        3: { halign: "center", cellWidth: 22 },
+        4: { halign: "center", cellWidth: 16 },
+        5: { halign: "right",  cellWidth: 18 },
+        6: { halign: "right",  cellWidth: 20 },
+        7: { halign: "center", cellWidth: 10 },
+        8: { halign: "right",  cellWidth: 24 },
+      },
+    });
+
+    const afterTableY = (doc as any).lastAutoTable?.finalY ?? tableStartY + 100;
+
+    // ── FOOTER SECTION ──
+    const footerH  = 36;
+    const footerY  = afterTableY;
+    const totalsW  = 60;
+    const termsW   = contentW - totalsW;
+
+    doc.rect(marginL, footerY, contentW, footerH, "S");
+    doc.line(marginL + termsW, footerY, marginL + termsW, footerY + footerH);
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "italic");
+    const termsText = "Servicing, Contact point, Bush fitting, Spring, Roller Set, Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass, Gear, Rack, Zebra connector, Lock Ball.";
+    const splitTerms = doc.splitTextToSize(termsText, termsW - 4);
+    doc.text(splitTerms, marginL + 2, footerY + 4);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text("Terms & Conditions", marginL + 2, footerY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.text(`Discount ${qDisc} %`,                            marginL + 2, footerY + 20);
+    doc.text("Validity :- 30 Days from date of our quotation", marginL + 2, footerY + 24);
+    doc.text("Delivery :- 8 to 10 Day",                    marginL + 2, footerY + 28);
+    doc.text("GST :-Extra as applicable 18%",              marginL + 2, footerY + 32);
+    doc.text("Payment :- Against Delivery",                marginL + 2, footerY + 36);
+
+    const totalsX  = marginL + termsW;
+    const totRowH  = 9;
+    doc.line(totalsX, footerY + totRowH,     marginL + contentW, footerY + totRowH);
+    doc.line(totalsX, footerY + totRowH * 2, marginL + contentW, footerY + totRowH * 2);
+    doc.line(totalsX, footerY + totRowH * 3, marginL + contentW, footerY + totRowH * 3);
+    const totLabelW = 28;
+    doc.line(totalsX + totLabelW, footerY, totalsX + totLabelW, footerY + footerH);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    const totRows = [
+      { label: "Total Qty.",                    value: String(qTotalQty) },
+      { label: `Discount ${qDisc} %`,           value: qDiscountAmount.toFixed(2) },
+      { label: "Total",                         value: qNetTotal.toFixed(2) },
+      { label: "R/O Amount",                    value: String(qRoundedTotal) },
+    ];
+    totRows.forEach((row, i) => {
+      const rowY = footerY + totRowH * i + 6;
+      doc.text(row.label, totalsX + 2, rowY);
+      doc.text(row.value, marginL + contentW - 2, rowY, { align: "right" });
+    });
+
+    const sigY = footerY + footerH + 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Yours Faithfully", marginL + contentW, sigY, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.text("VIKRAMADITYA ENTERPRISES", marginL + contentW, sigY + 6, { align: "right" });
+
+    return doc;
+  };
+
+  const generatePdfBase64 = (data?: any): Promise<string> => {
+    return new Promise(resolve => {
+      const doc = buildQuotationPdfDoc(data);
+      const dataUri = doc.output("datauristring");
+      const base64 = dataUri.split(",")[1] ?? "";
+      resolve(base64);
+    });
+  };
+
+  const exportPDF = () => {
+    const doc = buildQuotationPdfDoc();
+    doc.save(`Quotation_${quotationNo}.pdf`);
+  };
+
   // ── Save quotation to DB ──
   const handleSaveQuotation = async () => {
     if (!canSave) return;
@@ -118,9 +316,94 @@ export default function QuotationPage() {
       items:           items,
       created_by:      user?.email ?? "",
     }, { onConflict: "quotation_no" });
-    if (error) { setSaveMsg("Error: " + error.message); }
-    else { setSaveMsg("Quotation saved successfully."); fetchSaved(); }
+    if (error) { setSaveMsg("Error: " + error.message); return; }
+    setSaveMsg("Quotation saved successfully.");
+    fetchSaved();
     setTimeout(() => setSaveMsg(""), 3000);
+
+    const currentData = {
+      quotationNo, date, clientDate, clientName, clientAddress, clientGSTIN, kindAttn, clientDCNo, poNo, discountPercent, items, netTotal,
+    };
+
+    // ── Fetch party email & open email modal ──
+    try {
+      const pEmail = await fetchPartyEmail(clientName);
+      setEmailPartyAddress(pEmail);
+      const pdfBase64 = await generatePdfBase64(currentData);
+      setPendingEmailPdf(pdfBase64);
+      setEmailModal(true);
+    } catch (err) {
+      console.error("PDF generation or email modal error:", err);
+      setEmailPartyAddress("");
+      setEmailModal(true);
+    }
+  };
+
+  const handleSendEmail = async (targetEmail: string) => {
+    await sendEmail({
+      to: targetEmail,
+      subject: `Quotation ${quotationNo} from VIKRAMADITYA ENTERPRISES`,
+      html: quotationEmailHtml({
+        clientName: clientName || "Valued Client",
+        quotationNo,
+        date,
+        netTotal,
+        labName: "VIKRAMADITYA ENTERPRISES",
+      }),
+      pdfBase64: pendingEmailPdf,
+      pdfName: `Quotation_${quotationNo}.pdf`,
+    });
+  };
+
+  const handleEmailSaved = async (q: SavedQuotation) => {
+    const qData = {
+      quotationNo: q.quotationNo,
+      date: q.date,
+      clientDate: q.clientDcDate,
+      clientName: q.clientName,
+      clientAddress: q.clientAddress,
+      clientGSTIN: q.clientGstin,
+      kindAttn: q.kindAttn,
+      clientDCNo: q.clientDcNo,
+      poNo: q.poNo,
+      discountPercent: q.discountPercent,
+      items: q.items,
+      netTotal: q.netTotal,
+    };
+
+    setQuotationNo(q.quotationNo);
+    setDate(q.date);
+    setClientDate(q.clientDcDate);
+    setClientName(q.clientName);
+    setClientAddress(q.clientAddress);
+    setClientGSTIN(q.clientGstin);
+    setKindAttn(q.kindAttn);
+    setClientDCNo(q.clientDcNo);
+    setPoNo(q.poNo);
+    setDiscountPercent(q.discountPercent);
+    if (Array.isArray(q.items) && q.items.length > 0) {
+      setItems(q.items.map((it: any, idx: number) => ({
+        id: it.id ?? idx + 1,
+        desc: it.desc ?? "",
+        identification: it.identification ?? "",
+        size: it.size ?? "",
+        hsn: it.hsn ?? "",
+        repair: Number(it.repair ?? 0),
+        calib: Number(it.calib ?? 0),
+        qty: Number(it.qty ?? 1),
+      })));
+    }
+
+    try {
+      const pEmail = await fetchPartyEmail(q.clientName);
+      setEmailPartyAddress(pEmail);
+      const pdfBase64 = await generatePdfBase64(qData);
+      setPendingEmailPdf(pdfBase64);
+      setEmailModal(true);
+    } catch (err) {
+      console.error("Email saved quotation error:", err);
+      setEmailModal(true);
+    }
   };
 
   // ── View saved quotation — load into form ──
@@ -195,187 +478,6 @@ export default function QuotationPage() {
     }, 100);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }) as any;
-    const pageW = 210;
-    const marginL = 10;
-    const marginR = 10;
-    const contentW = pageW - marginL - marginR;
-
-    // ── COMPANY HEADER ──
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("VIKRAMADITYA ENTERPRISES.", pageW / 2, 14, { align: "center" });
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Office : A/P Male, Tal. Panhala, Dist. Kolhapur 416122", pageW / 2, 19, { align: "center" });
-    doc.text("Contact No -9503601616  Email- kiranpatil24586@gmail.com", pageW / 2, 23, { align: "center" });
-
-    // ── "Quotation" title box ──
-    doc.setFillColor(255, 255, 255);
-    doc.rect(marginL, 25, contentW, 8, "S");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("Quotation", pageW / 2, 31, { align: "center" });
-
-    // ── CLIENT INFO GRID ──
-    const infoY = 33;
-    const leftW = contentW * 0.5;
-    const rightW = contentW * 0.5;
-    const rowH = 7;
-
-    // Outer border
-    doc.rect(marginL, infoY, contentW, rowH * 4, "S");
-    // Vertical divider
-    doc.line(marginL + leftW, infoY, marginL + leftW, infoY + rowH * 4);
-    // Horizontal dividers left side
-    doc.line(marginL, infoY + rowH,     marginL + leftW, infoY + rowH);
-    doc.line(marginL, infoY + rowH * 2, marginL + leftW, infoY + rowH * 2);
-    doc.line(marginL, infoY + rowH * 3, marginL + leftW, infoY + rowH * 3);
-    // Horizontal dividers right side
-    doc.line(marginL + leftW, infoY + rowH,     marginL + contentW, infoY + rowH);
-    doc.line(marginL + leftW, infoY + rowH * 2, marginL + contentW, infoY + rowH * 2);
-    doc.line(marginL + leftW, infoY + rowH * 3, marginL + contentW, infoY + rowH * 3);
-    // Vertical divider in right half (for Quotation No / Date split)
-    const rightMid = marginL + leftW + rightW * 0.5;
-    doc.line(rightMid, infoY, rightMid, infoY + rowH * 2);
-
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    // Left column
-    doc.text(`M/S- ${clientName}`,        marginL + 2, infoY + 5);
-    doc.text(clientAddress,               marginL + 2, infoY + rowH + 5);
-    doc.text(`GSTIN No- ${clientGSTIN}`,  marginL + 2, infoY + rowH * 2 + 5);
-    doc.text(`Kind Attn. ${kindAttn}`,    marginL + 2, infoY + rowH * 3 + 5);
-    // Right column top row
-    doc.text(`Quotation No- ${quotationNo}`, marginL + leftW + 2, infoY + 5);
-    doc.text(`Date- ${date}`,                rightMid + 2,         infoY + 5);
-    // Right column second row
-    doc.text(`Client DC No- ${clientDCNo}`,  marginL + leftW + 2, infoY + rowH + 5);
-    doc.text(`DATE- ${clientDate}`,          rightMid + 2,         infoY + rowH + 5);
-    // Right column third row (PO NO spans full right)
-    doc.text(`PO NO :- ${poNo}`,             marginL + leftW + 2, infoY + rowH * 2 + 5);
-
-    // ── ITEMS TABLE ──
-    const tableStartY = infoY + rowH * 4;
-    const tableData = items.map((item, idx) => [
-      idx + 1,
-      item.desc,
-      item.identification,
-      item.size,
-      item.hsn,
-      Number(item.repair).toFixed(2),
-      Number(item.calib).toFixed(2),
-      item.qty,
-      ((Number(item.repair) + Number(item.calib)) * Number(item.qty)).toFixed(2),
-    ]);
-    // Pad to at least 15 rows
-    while (tableData.length < 15) tableData.push(["", "", "", "", "", "", "", "", ""]);
-
-    doc.autoTable({
-      startY: tableStartY,
-      head: [["Sr. No", "Description", "Identification", "Size/Range/LC", "HSN", "Repair", "Calibration", "Qty", "Amount"]],
-      body: tableData,
-      theme: "grid",
-      margin: { left: marginL, right: marginR },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-        halign: "center",
-        fontSize: 7,
-        cellPadding: 2,
-      },
-      bodyStyles: {
-        fontSize: 7,
-        textColor: [0, 0, 0],
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-        cellPadding: 2,
-        minCellHeight: 6,
-      },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 12 },
-        1: { halign: "left",   cellWidth: 40 },
-        2: { halign: "center", cellWidth: 28 },
-        3: { halign: "center", cellWidth: 22 },
-        4: { halign: "center", cellWidth: 16 },
-        5: { halign: "right",  cellWidth: 18 },
-        6: { halign: "right",  cellWidth: 20 },
-        7: { halign: "center", cellWidth: 10 },
-        8: { halign: "right",  cellWidth: 24 },
-      },
-    });
-
-    const afterTableY = doc.lastAutoTable.finalY;
-
-    // ── FOOTER SECTION ──
-    const footerH  = 36;
-    const footerY  = afterTableY;
-    const totalsW  = 60;
-    const termsW   = contentW - totalsW;
-
-    // Outer border
-    doc.rect(marginL, footerY, contentW, footerH, "S");
-    // Vertical divider between terms and totals
-    doc.line(marginL + termsW, footerY, marginL + termsW, footerY + footerH);
-
-    // Terms text (left side)
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "italic");
-    const termsText = "Servicing, Contact point, Bush fitting, Spring, Roller Set, Rachet, Carbid pin, Cam, Oring, Bezal, Scal, Glass, Gear, Rack, Zebra connector, Lock Ball.";
-    const splitTerms = doc.splitTextToSize(termsText, termsW - 4);
-    doc.text(splitTerms, marginL + 2, footerY + 4);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.text("Terms & Conditions", marginL + 2, footerY + 16);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
-    doc.text("Discount 15 %",                              marginL + 2, footerY + 20);
-    doc.text("Validity :- 30 Days from date of our quotation", marginL + 2, footerY + 24);
-    doc.text("Delivery :- 8 to 10 Day",                    marginL + 2, footerY + 28);
-    doc.text("GST :-Extra as applicable 18%",              marginL + 2, footerY + 32);
-    doc.text("Payment :- Against Delivery",                marginL + 2, footerY + 36);
-
-    // Totals (right side)
-    const totalsX  = marginL + termsW;
-    const totRowH  = 9;
-    // Horizontal lines for totals rows
-    doc.line(totalsX, footerY + totRowH,     marginL + contentW, footerY + totRowH);
-    doc.line(totalsX, footerY + totRowH * 2, marginL + contentW, footerY + totRowH * 2);
-    doc.line(totalsX, footerY + totRowH * 3, marginL + contentW, footerY + totRowH * 3);
-    // Vertical divider inside totals (label | value)
-    const totLabelW = 28;
-    doc.line(totalsX + totLabelW, footerY, totalsX + totLabelW, footerY + footerH);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    const totRows = [
-      { label: "Total Qty.",                    value: String(totalQty) },
-      { label: `Discount ${discountPercent} %`, value: discountAmount.toFixed(2) },
-      { label: "Total",                         value: netTotal.toFixed(2) },
-      { label: "R/O Amount",                    value: String(roundedTotal) },
-    ];
-    totRows.forEach((row, i) => {
-      const rowY = footerY + totRowH * i + 6;
-      doc.text(row.label, totalsX + 2, rowY);
-      doc.text(row.value, marginL + contentW - 2, rowY, { align: "right" });
-    });
-
-    // ── SIGNATURE ──
-    const sigY = footerY + footerH + 8;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Yours Faithfully", marginL + contentW, sigY, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.text("VIKRAMADITYA ENTERPRISES", marginL + contentW, sigY + 6, { align: "right" });
-
-    doc.save(`Quotation_${quotationNo}.pdf`);
-  };
-
   const inputCls = "w-full outline-none border-none bg-transparent text-gray-900 text-sm placeholder-gray-400";
   const labelCls = "block text-xs font-medium text-gray-500 mb-0.5";
 
@@ -386,6 +488,30 @@ export default function QuotationPage() {
       transition={{ duration: 0.25 }}
       className="w-full px-4 md:px-8 py-6 print:p-0 flex flex-col gap-6"
     >
+      {/* Email modal — shown after quotation save */}
+      {emailModal && (
+        <SendEmailModal
+          defaultEmail={clientGSTIN ? "" : ""}
+          subject={`Quotation ${quotationNo} — Vikramaditya Metrology`}
+          previewName={`Quotation ${quotationNo}`}
+          onSend={async (email) => {
+            await sendEmail({
+              to:         email,
+              subject:    `Quotation ${quotationNo} — Vikramaditya Metrology`,
+              html:       quotationEmailHtml({
+                clientName,
+                quotationNo,
+                date,
+                netTotal,
+                labName: "Vikramaditya Enterprises",
+              }),
+              pdfBase64: pendingEmailPdf,
+              pdfName:   `Quotation_${quotationNo}.pdf`,
+            });
+          }}
+          onClose={() => { setEmailModal(false); setPendingEmailPdf(""); }}
+        />
+      )}
       {/* =====================================================
           PRINT-ONLY LAYOUT — exact original format
           Hidden on screen, shown only when printing
@@ -800,6 +926,10 @@ export default function QuotationPage() {
                           className="inline-flex items-center gap-1 text-xs text-brand-orange hover:underline">
                           <Download size={12} /> PDF
                         </button>
+                        <button onClick={() => handleEmailSaved(q)}
+                          className="inline-flex items-center gap-1 text-xs text-brand-orange hover:underline">
+                          <Mail size={12} /> Email
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -807,6 +937,17 @@ export default function QuotationPage() {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Email Modal */}
+        {emailModal && (
+          <SendEmailModal
+            defaultEmail={emailPartyAddress}
+            subject={`Quotation ${quotationNo} from VIKRAMADITYA ENTERPRISES`}
+            previewName={`Quotation ${quotationNo}`}
+            onSend={handleSendEmail}
+            onClose={() => setEmailModal(false)}
+          />
         )}
       </div>
     </motion.div>
