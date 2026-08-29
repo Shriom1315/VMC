@@ -20,8 +20,8 @@ exports.handler = async (event, context) => {
     };
   }
 
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  const gmailUser = (process.env.GMAIL_USER || "").trim();
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim().replace(/\s+/g, "");
 
   if (!gmailUser || !gmailPass || gmailUser.includes("your-email")) {
     return {
@@ -50,7 +50,9 @@ exports.handler = async (event, context) => {
     }
 
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: gmailUser,
         pass: gmailPass,
