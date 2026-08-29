@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build dependencies & applications
 # ==========================================
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -12,12 +12,12 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
 # Copy root package definitions and workspace package definitions
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 
-# Install all dependencies (including devDependencies needed for build)
-RUN npm ci
+# Install all dependencies directly in container environment for correct OS & architecture binaries
+RUN npm install
 
 # Copy source code files
 COPY frontend ./frontend
