@@ -1,0 +1,10 @@
+node_modules
+dist
+frontend/dist
+backend/dist
+.git
+.gitignore
+.vscode
+*.log
+.env*
+!.env.example

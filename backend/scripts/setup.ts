@@ -44,8 +44,8 @@ async function upsert(table: string, data: object[], conflictCol = "id") {
 async function createAdminAccount() {
   console.log("\n👤  Creating admin auth account...");
 
-  const ADMIN_EMAIL    = "admin@vikramaditya.com";
-  const ADMIN_PASSWORD = "Admin@VMC2026";
+  const ADMIN_EMAIL    = process.env.ADMIN_EMAIL || "admin@vikramaditya.com";
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@VMC2026";
 
   // Check if already exists
   const { data: existing } = await sb.auth.admin.listUsers();
